@@ -4,7 +4,7 @@ Thanks for helping improve the Data Engineering Interview Guide!
 
 ## Requesting Access
 
-Open a **[Collaboration request](https://github.com/shriram-pawar/data-engineering-interview-guide/issues/new?template=collaboration-request.yml)** issue. Issues are public, so don't include your email address or other personal details: your GitHub username is all that's needed for an invite.
+Open a **[Collaboration request](https://github.com/shriram-pawar/data-engineering-interview-guide/issues/new?template=collaboration-request.yml)** issue. Issues are public: full name and LinkedIn URL are optional and will be visible to anyone, and you shouldn't include your email address or phone number. Your GitHub username is all that's needed for an invite.
 
 You don't need access to contribute: you can fork the repo and open a pull request from your fork.
 
@@ -45,3 +45,7 @@ You don't need access to contribute: you can fork the repo and open a pull reque
 - Use lowercase, hyphen-separated file names (e.g. `window-functions.md`).
 - Make sure code samples run, and say which versions you used (Python, Spark, Airflow, etc.).
 - Don't commit credentials, keys, or proprietary/confidential data.
+
+## Rights to Contributions
+
+By submitting a contribution (a pull request, issue content or any other material), you confirm it is your own original work and you **grant Shriram Pawar the rights to your submission**, including a perpetual, worldwide, irrevocable, royalty-free right to use, copy, modify, publish and relicense it, as part of this guide or otherwise. The guide stays under the copyright notice in the [README](README.md).
