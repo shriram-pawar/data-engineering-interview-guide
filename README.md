@@ -30,6 +30,6 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md). In sh
 2. Commit your changes and open a pull request.
 3. A code owner reviews and approves before merging. Direct pushes to `main` are not allowed.
 
-## License
+---
 
-[MIT](LICENSE)
+© 2026 Shriram Pawar. All rights reserved. This content is shared for viewing and learning only. Do not copy or republish without permission.
