@@ -344,3 +344,123 @@ with beam.Pipeline(options=options) as p:
 - How does choosing the right machine type affect cost?
 
 **Difficulty:** Medium
+
+---
+
+### Q21: What's the difference between `Flatten` and `CoGroupByKey`?
+
+**Answer:**
+- **`Flatten`** merges several PCollections **of the same type** into one, like `UNION ALL`. Example: combine events read from two buckets.
+- **`CoGroupByKey`** **joins** several keyed PCollections by key. For each key it returns the values from every input. Example: join orders and customers by `customer_id`.
+
+```python
+merged = (events_a, events_b) | beam.Flatten()
+
+joined = ({"orders": orders_kv, "customers": customers_kv}
+          | beam.CoGroupByKey())
+# -> (customer_id, {"orders": [...], "customers": [...]})
+```
+
+For joining a big PCollection with a small one, a **side input** is usually cheaper than `CoGroupByKey`, because it avoids a shuffle.
+
+**Follow-ups:**
+- How would you implement a left outer join with `CoGroupByKey`?
+- What happens with `CoGroupByKey` in a streaming pipeline (windowing requirements)?
+
+**Difficulty:** Medium
+
+---
+
+### Q22: What's the difference between `Partition` and tagged (multiple) outputs?
+
+**Answer:**
+- **`beam.Partition(fn, n)`** splits a PCollection into a **fixed number** of outputs. Each element goes to **exactly one** partition, chosen by `fn`, e.g. split by region into 4 PCollections.
+- **Tagged outputs** let a `ParDo` emit to **named** outputs (`beam.pvalue.TaggedOutput("invalid", row)`). An element can go to zero, one or several outputs. This is the standard pattern for **dead-letter** handling: valid rows to the main output, bad rows to an `invalid` output written to a quarantine table.
+
+```python
+results = rows | beam.ParDo(Validate()).with_outputs("invalid", main="valid")
+results.valid   | "WriteGood" >> beam.io.WriteToBigQuery(...)
+results.invalid | "WriteBad"  >> beam.io.WriteToText("gs://my-bucket/quarantine/")
+```
+
+**Follow-ups:**
+- Why must the number of partitions be known at pipeline construction time?
+- What would you record alongside each invalid row?
+
+**Difficulty:** Medium
+
+---
+
+### Q23: What's the difference between event time and processing time?
+
+**Answer:**
+- **Event time:** when the event actually happened (a timestamp in the data).
+- **Processing time:** when the pipeline sees the event.
+
+They differ because of network delays, offline devices and retries, so events arrive late and out of order. Correct business aggregations (e.g. sales per minute) must use **event time**, with windows assigned by event timestamp. **Watermarks** estimate how complete the event-time data is, and **triggers** and **allowed lateness** decide when to emit results and how to handle late data.
+
+**Follow-ups:**
+- How do you assign event timestamps when reading from Pub/Sub?
+- When is processing time good enough?
+
+**Difficulty:** Medium
+
+---
+
+### Q24: What is a hot key, and how do you deal with it in Dataflow?
+
+**Answer:**
+A hot key is a key with far more elements than the others, e.g. one huge customer, or a `NULL` / `"unknown"` key. Grouping operations send all values for a key to one worker, so that worker becomes the bottleneck while the others sit idle. Dataflow logs a "hot key detected" warning.
+
+Fixes:
+- Use **combiners** (`CombinePerKey`) instead of `GroupByKey`, so values are partially aggregated before the shuffle.
+- Use **`with_hot_key_fanout(n)`** on combines to spread a hot key across workers.
+- **Salt** the key (`key#0..n`), aggregate, then aggregate again without the salt.
+- Filter or handle junk keys (`NULL`) separately.
+
+**Follow-ups:**
+- How would you find which key is hot?
+- Why is a combiner more efficient than `GroupByKey` followed by a sum?
+
+**Difficulty:** Hard
+
+---
+
+### Q25: Why use Apache Beam on Dataflow instead of plain Python scripts?
+
+**Answer:**
+A Python script runs on one machine. Beam on Dataflow gives you:
+- **Distributed processing and autoscaling** across many workers
+- **Fault tolerance:** failed work is retried, with exactly-once processing semantics inside the pipeline
+- **One model for batch and streaming**, with windowing, triggers and watermarks built in
+- **Managed operations:** no cluster to manage, plus monitoring, Shuffle and Streaming Engine
+- **Connectors** for Pub/Sub, BigQuery, Cloud Storage, Kafka and more
+
+A script is fine for small files. Beam pays off once data no longer fits one machine, or when it's streaming.
+
+**Follow-ups:**
+- When would you choose Dataproc (Spark) instead of Dataflow?
+- What's the overhead of Beam for small jobs?
+
+**Difficulty:** Easy
+
+---
+
+### Q26: What are common production issues with Dataflow jobs, and how do you troubleshoot them?
+
+**Answer:**
+| Symptom | Likely causes | What to check or do |
+|---|---|---|
+| Growing **system lag** / Pub/Sub backlog | Slow step, hot key, too few workers, max workers reached | Job graph step timings, autoscaling history, hot key logs |
+| **Worker OOM** | Large `GroupByKey` groups, big side inputs, oversized bundles | Use combiners, use bigger machine types, shrink side inputs |
+| **BigQuery write errors** | Schema mismatch, type errors | Failed-rows output / dead-letter table |
+| Job won't start or scale | Quota (CPUs, IPs), permissions, region capacity | Job logs, quotas page, service account roles |
+| Can't update a streaming job | Incompatible graph change | Use `--update` with a transform name mapping, or **drain** and relaunch |
+
+Use the Dataflow monitoring UI (job graph, step metrics, worker logs), Cloud Monitoring alerts on system lag and data freshness, and Error Reporting.
+
+**Follow-ups:**
+- What's the difference between draining and cancelling a streaming job?
+- How would you replay data after fixing a bug in a streaming pipeline?
+
+**Difficulty:** Hard

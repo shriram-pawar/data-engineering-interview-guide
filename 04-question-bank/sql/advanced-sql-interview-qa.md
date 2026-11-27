@@ -344,3 +344,190 @@ The optimizer relies on statistics (row counts, value distribution/histograms, c
 - What symptoms point to stale statistics?
 
 **Difficulty:** Hard
+
+---
+
+### Q21: What are the categories of SQL commands?
+
+**Answer:**
+```mermaid
+flowchart TD
+    SQL[SQL commands] --> DDL[DDL: define structure]
+    SQL --> DML[DML: change data]
+    SQL --> DQL[DQL: query data]
+    SQL --> DCL[DCL: control access]
+    SQL --> TCL[TCL: manage transactions]
+    DDL --> d1[CREATE, ALTER, DROP, TRUNCATE, RENAME]
+    DML --> m1[INSERT, UPDATE, DELETE, MERGE]
+    DQL --> q1[SELECT]
+    DCL --> c1[GRANT, REVOKE]
+    TCL --> t1[COMMIT, ROLLBACK, SAVEPOINT]
+```
+
+Points interviewers like: `TRUNCATE` is DDL (it removes all rows quickly, usually can't be filtered, and in many databases can't be rolled back), whereas `DELETE` is DML (row-by-row, filterable, transactional). In BigQuery, access is granted through IAM, although `GRANT` / `REVOKE` statements exist for datasets, tables and views; multi-statement transactions use `BEGIN TRANSACTION ... COMMIT`.
+
+**Follow-ups:**
+- What's the difference between `DELETE`, `TRUNCATE` and `DROP`?
+- Is `SELECT ... INTO` / `CREATE TABLE AS SELECT` DDL or DML?
+
+**Difficulty:** Easy
+
+---
+
+### Q22: What's the difference between `GROUP BY` and `PARTITION BY`?
+
+**Answer:**
+- **`GROUP BY`** collapses rows: you get **one row per group**, and can only select grouped columns and aggregates.
+- **`PARTITION BY`** (inside `OVER (...)`) computes a window function **per group while keeping every row**.
+
+```sql
+-- One row per department
+SELECT department, AVG(salary) AS avg_salary
+FROM employees
+GROUP BY department;
+
+-- Every employee, with their department's average alongside
+SELECT name, department, salary,
+       AVG(salary) OVER (PARTITION BY department) AS dept_avg_salary
+FROM employees;
+```
+
+Use `PARTITION BY` when you need row-level detail plus a group metric, e.g. "employees earning above their department average" or "rank within department".
+
+**Follow-ups:**
+- How would you return only employees above their department's average?
+- Can you use `GROUP BY` and a window function in the same query?
+
+**Difficulty:** Easy
+
+---
+
+### Q23: How do you compare two tables and find missing or different records?
+
+**Answer:**
+Use a `FULL OUTER JOIN` on the key to classify each difference in one pass:
+
+```sql
+SELECT COALESCE(s.id, t.id) AS id,
+       CASE WHEN t.id IS NULL THEN 'missing_in_target'
+            WHEN s.id IS NULL THEN 'missing_in_source'
+            ELSE 'value_mismatch' END AS issue
+FROM src s
+FULL OUTER JOIN tgt t ON t.id = s.id
+WHERE s.id IS NULL OR t.id IS NULL OR s.v IS DISTINCT FROM t.v
+ORDER BY id;
+```
+
+For whole-row comparison, set operators are shorter: `SELECT * FROM src EXCEPT SELECT * FROM tgt` returns rows in `src` that aren't identical in `tgt` (run it both ways). `IS DISTINCT FROM` treats two NULLs as equal, so NULL columns don't show up as false mismatches.
+
+**BigQuery version:**
+```sql
+SELECT * FROM `mydataset.src` EXCEPT DISTINCT SELECT * FROM `mydataset.tgt`;
+```
+BigQuery requires `EXCEPT DISTINCT`. To compare wide tables cheaply, compare per-row fingerprints, e.g. `FARM_FINGERPRINT(TO_JSON_STRING(t))`.
+
+**Follow-ups:**
+- How would you reconcile two tables with billions of rows during a migration?
+- How do NULLs affect `=` versus `IS DISTINCT FROM` in comparisons?
+
+**Difficulty:** Medium
+
+---
+
+### Q24: How do you implement a Slowly Changing Dimension Type 2 load in SQL?
+
+**Answer:**
+SCD Type 2 keeps history: when a tracked attribute changes, **close** the current row and **insert** a new current row. Standard two-step version (tested on DuckDB):
+
+```sql
+-- 1. Close the current row for customers whose tracked attribute changed
+UPDATE dim_customer d
+SET valid_to = CURRENT_DATE, is_current = FALSE
+FROM stg_customer s
+WHERE d.customer_id = s.customer_id AND d.is_current AND d.city <> s.city;
+
+-- 2. Insert a new current row for changed and brand-new customers
+INSERT INTO dim_customer (customer_id, city, valid_from, valid_to, is_current)
+SELECT s.customer_id, s.city, CURRENT_DATE, NULL, TRUE
+FROM stg_customer s
+LEFT JOIN dim_customer d ON d.customer_id = s.customer_id AND d.is_current
+WHERE d.customer_id IS NULL;
+```
+
+**BigQuery version** (a single `MERGE`; changed rows appear twice in the source, once with a NULL join key, so the new version gets inserted):
+```sql
+MERGE `mydataset.dim_customer` d
+USING (
+  SELECT customer_id AS join_key, customer_id, city FROM `mydataset.stg_customer`
+  UNION ALL
+  SELECT NULL AS join_key, s.customer_id, s.city
+  FROM `mydataset.stg_customer` s
+  JOIN `mydataset.dim_customer` d ON d.customer_id = s.customer_id AND d.is_current
+  WHERE d.city <> s.city
+) s
+ON d.customer_id = s.join_key AND d.is_current
+WHEN MATCHED AND d.city <> s.city THEN
+  UPDATE SET valid_to = CURRENT_DATE(), is_current = FALSE
+WHEN NOT MATCHED THEN
+  INSERT (customer_id, city, valid_from, valid_to, is_current)
+  VALUES (s.customer_id, s.city, CURRENT_DATE(), NULL, TRUE);
+```
+
+With many tracked columns, compare a hash of them (`FARM_FINGERPRINT(...)`) instead of listing every column. In dbt, **snapshots** implement this pattern for you.
+
+**Follow-ups:**
+- How would you handle a customer whose record changes twice in the same batch?
+- How do you query "which city was this customer in on 1 March"?
+
+**Difficulty:** Hard
+
+---
+
+### Q25: How do you filter for the last 7 days and for the previous calendar month?
+
+**Answer:**
+Use half-open ranges (`>=` start and `<` end) on the raw date column, so partition pruning and indexes still work:
+
+```sql
+-- Last 7 days (including today)
+SELECT * FROM orders
+WHERE order_date >= CURRENT_DATE - INTERVAL 7 DAY;
+
+-- Previous calendar month
+SELECT * FROM orders
+WHERE order_date >= date_trunc('month', CURRENT_DATE - INTERVAL 1 MONTH)
+  AND order_date <  date_trunc('month', CURRENT_DATE);
+```
+
+**BigQuery version:**
+```sql
+SELECT * FROM `mydataset.orders`
+WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY);
+
+SELECT * FROM `mydataset.orders`
+WHERE order_date >= DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH), MONTH)
+  AND order_date <  DATE_TRUNC(CURRENT_DATE(), MONTH);
+```
+
+Avoid wrapping the column in a function (`EXTRACT(MONTH FROM order_date) = ...`): that blocks pruning and breaks at year boundaries. For `TIMESTAMP` columns, be explicit about the time zone.
+
+**Follow-ups:**
+- Should "last 7 days" include today? How would you make that explicit?
+- How would you compute month-to-date versus the same period last month?
+
+**Difficulty:** Easy
+
+---
+
+### Q26: What is a cursor, and why are cursors discouraged in data warehouses?
+
+**Answer:**
+A cursor lets procedural SQL (T-SQL, PL/pgSQL, Teradata or Oracle procedures) iterate over a result set **row by row**: declare, open, fetch in a loop, close.
+
+They're slow at scale because every row is a separate operation with no set-based optimization or parallelism. Warehouses such as BigQuery are designed for **set-based** SQL, and BigQuery scripting has no cursors (only `FOR ... IN (query)` loops, which are best kept to small control tables). When migrating cursor logic, rewrite it as set operations: `MERGE`, window functions, or `UPDATE ... FROM` joins.
+
+**Follow-ups:**
+- How would you rewrite a cursor that computes a running balance per account?
+- When is row-by-row processing actually justified?
+
+**Difficulty:** Medium

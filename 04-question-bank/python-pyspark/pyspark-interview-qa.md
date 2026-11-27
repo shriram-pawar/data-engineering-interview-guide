@@ -414,3 +414,106 @@ print(bad_records.value)
 - How would you add 50 columns efficiently?
 
 **Difficulty:** Easy
+
+---
+
+### Q25: What's the difference between narrow and wide transformations?
+
+**Answer:**
+- **Narrow:** each output partition depends on **one** input partition, so there's no data movement. Examples: `select`, `filter`, `withColumn`, `map`, `union`. Spark pipelines consecutive narrow transformations into one stage.
+- **Wide:** an output partition needs data from **many** input partitions, so Spark must **shuffle** data across the network. Examples: `groupBy`, `join` (non-broadcast), `distinct`, `orderBy`, `repartition`.
+
+Wide transformations create **stage boundaries** and are usually the most expensive part of a job, so tuning focuses on reducing or optimizing them.
+
+**Follow-ups:**
+- Why is a broadcast join narrow on the large side?
+- Is `coalesce` narrow or wide?
+
+**Difficulty:** Easy
+
+---
+
+### Q26: Explain jobs, stages and tasks in Spark.
+
+**Answer:**
+- **Job:** created by each **action** (`count`, `write`, `collect`).
+- **Stage:** a job is split into stages at **shuffle boundaries** (wide transformations). Each stage runs a pipelined set of narrow transformations.
+- **Task:** one unit of work per **partition** per stage, executed by an executor core.
+
+Example: `spark.read.parquet(...).filter(...).groupBy("country").count().write...` gives one job with two stages: read and filter, then a shuffle, then aggregate and write. The number of tasks in the first stage equals the number of input partitions; in the second it equals the shuffle partitions.
+
+**Follow-ups:**
+- Where do you see stages and tasks in the Spark UI, and what does a long-tail task mean?
+- How does AQE change the number of tasks after a shuffle?
+
+**Difficulty:** Easy
+
+---
+
+### Q27: What is bucketing, and how does it differ from partitioning?
+
+**Answer:**
+| | `partitionBy` (on write) | `bucketBy` |
+|---|---|---|
+| Layout | One **directory** per column value (`country=IN/`) | A fixed number of **files** per partition, rows assigned by `hash(col) % n` |
+| Best for | Low-cardinality filter columns (date, country) | High-cardinality join or aggregation keys (`customer_id`) |
+| Benefit | **Partition pruning**: skip directories when filtering | **No shuffle** when joining or aggregating tables bucketed the same way on the same key |
+| Requirement | Any file write | Only with `saveAsTable` (metastore tables) |
+
+```python
+(orders.write.partitionBy("order_date")
+       .bucketBy(32, "customer_id").sortBy("customer_id")
+       .saveAsTable("sales.orders"))
+```
+
+Partitioning on a high-cardinality column creates millions of tiny files; bucketing exists to handle those keys.
+
+**Follow-ups:**
+- What must match for two bucketed tables to join without a shuffle?
+- How do Delta Lake's liquid clustering and Z-ordering relate to this?
+
+**Difficulty:** Medium
+
+---
+
+### Q28: What's the difference between `groupByKey` and `reduceByKey`?
+
+**Answer:**
+Both group an RDD of `(key, value)` pairs, but:
+- **`reduceByKey(func)`** combines values **on each partition first** (map-side combine), then shuffles only the partial results. Less data moves, so it's faster and safer for memory.
+- **`groupByKey()`** shuffles **every value** across the network and builds the full list per key on one executor, which risks OOM for large keys.
+
+```python
+pairs = sc.parallelize([("a", 1), ("b", 1), ("a", 1)])
+pairs.reduceByKey(lambda x, y: x + y).collect()           # [('a', 2), ('b', 1)]
+pairs.groupByKey().mapValues(sum).collect()               # same result, more shuffle
+```
+
+With DataFrames, `df.groupBy("key").agg(sum("v"))` already does partial aggregation, so this is mainly an RDD-API question.
+
+**Follow-ups:**
+- When is `groupByKey` acceptable?
+- What do `aggregateByKey` and `combineByKey` add?
+
+**Difficulty:** Medium
+
+---
+
+### Q29: What are predicate pushdown and column pruning?
+
+**Answer:**
+- **Predicate pushdown:** Spark pushes filters down to the data source, so less data is read. With Parquet or ORC, row groups whose min/max statistics can't match are skipped; with JDBC or BigQuery, the filter runs in the source system.
+- **Column pruning:** only the selected columns are read. Columnar formats make this very effective.
+
+```python
+df = spark.read.parquet("gs://bucket/orders/").filter("order_date = '2024-01-01'").select("order_id", "amount")
+df.explain()   # look for PushedFilters: [EqualTo(order_date, ...)] and a narrow ReadSchema
+```
+
+Pushdown can be blocked by UDFs in the filter, by casting the column (`CAST(col AS STRING) = ...`), or by formats such as CSV that have no statistics.
+
+**Follow-ups:**
+- How do partition pruning and predicate pushdown differ?
+- Why might a filter on a timestamp column not be pushed down?
+
+**Difficulty:** Medium

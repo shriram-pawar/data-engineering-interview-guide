@@ -485,3 +485,316 @@ first_1000 = list(islice(read_huge_generator(), 1000))
 - Write a function that yields fixed-size batches from any iterable.
 
 **Difficulty:** Medium
+
+---
+
+### Q23: What are Python's built-in data types?
+
+**Answer:**
+```mermaid
+flowchart TD
+    T[Python built-in types] --> N[Numeric]
+    T --> S[Sequence]
+    T --> M[Mapping]
+    T --> ST[Set]
+    T --> B[Boolean]
+    T --> NO[NoneType]
+    N --> int & float & complex
+    S --> str & list & tuple & range
+    M --> dict
+    ST --> set & frozenset
+    B --> bool
+```
+
+- **Numeric:** `int` (arbitrary precision), `float`, `complex`. Use `decimal.Decimal` for money.
+- **Sequences:** `str` (immutable text), `list` (mutable), `tuple` (immutable), `range`.
+- **Mapping:** `dict` (insertion-ordered since 3.7).
+- **Sets:** `set` (mutable), `frozenset` (immutable, hashable).
+- **Boolean:** `bool` (a subclass of `int`). Plus **`None`**, and `bytes` / `bytearray` for binary data.
+
+**Follow-ups:**
+- Why shouldn't you use `float` for currency amounts?
+- Which of these types can be dictionary keys, and why?
+
+**Difficulty:** Easy
+
+---
+
+### Q24: Why is Python called an interpreted language?
+
+**Answer:**
+You run source code directly, with no separate compile-and-link step. Under the hood, CPython **compiles source to bytecode** (cached as `.pyc` files) and the **Python virtual machine** executes that bytecode instruction by instruction. Errors such as a `NameError` surface at runtime when the line executes, and types are checked dynamically.
+
+Consequences: fast iteration and portability, but slower CPU-bound execution than compiled languages. That's why heavy numeric work is pushed into C-backed libraries (NumPy, pandas, Arrow) or distributed engines (Spark).
+
+**Follow-ups:**
+- What's the difference between CPython and PyPy?
+- Why does vectorized pandas code run faster than a Python loop?
+
+**Difficulty:** Easy
+
+---
+
+### Q25: What's the difference between a module and a package?
+
+**Answer:**
+- A **module** is a single `.py` file (e.g. `utils.py`), imported with `import utils`.
+- A **package** is a directory of modules, traditionally with an `__init__.py`, imported with dotted paths (`from pipelines.transforms import clean`).
+- A **distribution** (wheel) is how packages are shipped and installed with `pip`.
+
+In data projects, organize reusable logic (readers, validators, BigQuery helpers) into a package with tests, instead of copying functions between DAG files or notebooks.
+
+**Follow-ups:**
+- What does `if __name__ == "__main__":` do?
+- How would you share a common package across Composer DAGs?
+
+**Difficulty:** Easy
+
+---
+
+### Q26: What are mutable and immutable objects, and why does it matter?
+
+**Answer:**
+- **Immutable:** cannot change after creation: `int`, `float`, `str`, `tuple`, `frozenset`, `bytes`. "Modifying" one creates a new object.
+- **Mutable:** can change in place: `list`, `dict`, `set`, most custom objects.
+
+Why it matters:
+- Only hashable (generally immutable) objects can be **dict keys or set members**.
+- Mutable objects passed into functions can be **changed by the callee**: the caller sees the change.
+- A **mutable default argument** is shared across calls.
+- Immutable objects are safe to share between threads.
+
+```python
+a = [1, 2]
+b = a           # same object
+b.append(3)
+print(a)        # [1, 2, 3]
+```
+
+**Follow-ups:**
+- Is a tuple containing a list hashable?
+- How do you avoid accidentally mutating an input record in a transformation?
+
+**Difficulty:** Easy
+
+---
+
+### Q27: How do indexing, negative indexing and slicing work?
+
+**Answer:**
+Indexes start at `0`; negative indexes count from the end (`-1` is the last element). Slicing is `seq[start:stop:step]`, where `stop` is exclusive.
+
+```python
+fruits = ["apple", "banana", "cherry", "date"]
+fruits[0], fruits[-1]      # ('apple', 'date')
+fruits[1:3]                # ['banana', 'cherry']
+fruits[:2], fruits[2:]     # ['apple', 'banana'], ['cherry', 'date']
+fruits[::-1]               # reversed copy
+fruits[::2]                # every second element
+```
+
+Slicing returns a **new** list (a shallow copy), and out-of-range slices don't raise errors.
+
+**Follow-ups:**
+- What does `s[-3:]` return for a string shorter than 3 characters?
+- How would you get the last 7 elements of a list of daily values?
+
+**Difficulty:** Easy
+
+---
+
+### Q28: Explain the four pillars of OOP with a data-engineering example.
+
+**Answer:**
+```python
+from abc import ABC, abstractmethod
+
+class Source(ABC):                       # Abstraction: a common interface
+    @abstractmethod
+    def read(self): ...
+
+class CsvSource(Source):                 # Inheritance
+    def __init__(self, path):
+        self._path = path                # Encapsulation: internal detail
+    def read(self):
+        return f"rows from {self._path}"
+
+class ApiSource(Source):
+    def __init__(self, url):
+        self._url = url
+    def read(self):
+        return f"rows from {self._url}"
+
+for src in [CsvSource("gs://bucket/a.csv"), ApiSource("https://api.example.com/items")]:
+    print(src.read())                    # Polymorphism: same call, different behavior
+```
+
+- **Encapsulation:** hide internal state behind methods (`_path`).
+- **Abstraction:** define *what* a source does (`read`), not *how*.
+- **Inheritance:** concrete sources reuse and extend the base class.
+- **Polymorphism:** pipeline code calls `read()` on any source without knowing its type.
+
+**Follow-ups:**
+- When would composition be better than inheritance here?
+- What do `@property` and name mangling (`__attr`) do?
+
+**Difficulty:** Medium
+
+---
+
+### Q29: How do you read data from a paginated REST API reliably?
+
+**Answer:**
+Use a session with **timeouts, retries with backoff**, and loop over pages until there are no more:
+
+```python
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+def fetch_all(url, token):
+    session = requests.Session()
+    retry = Retry(total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {"page_size": 500}
+    while url:
+        resp = session.get(url, headers=headers, params=params, timeout=30)
+        resp.raise_for_status()
+        body = resp.json()
+        yield from body["items"]            # stream records instead of building one big list
+        url, params = body.get("next"), None  # follow the next-page link
+```
+
+Also: keep the token in Secret Manager, respect rate limits (`Retry-After`), checkpoint the last page or watermark for incremental loads, and land the raw responses in Cloud Storage before transforming them.
+
+**Follow-ups:**
+- How would you load only records changed since the last run?
+- How would you parallelize the calls without hitting rate limits?
+
+**Difficulty:** Medium
+
+---
+
+### Q30: How do you add logging to a Python pipeline?
+
+**Answer:**
+Use the standard `logging` module (not `print`), with levels and a consistent format:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+log = logging.getLogger("orders_pipeline")
+
+log.info("Loaded %d rows from %s", 1200, "gs://bucket/orders.csv")
+log.warning("Skipped %d rows with missing order_id", 3)
+try:
+    1 / 0
+except ZeroDivisionError:
+    log.exception("Transform failed")      # logs the stack trace at ERROR level
+```
+
+Good practice: log counts, run IDs and parameters at INFO, problems at WARNING and ERROR; never log secrets or PII; on GCP, emit **structured JSON** so Cloud Logging can filter on fields and build log-based metrics.
+
+**Follow-ups:**
+- Why use `%s` placeholders instead of f-strings in log calls?
+- How would you alert on an ERROR log from a pipeline?
+
+**Difficulty:** Easy
+
+---
+
+### Q31: Which Python libraries do you use in data engineering work?
+
+**Answer:**
+Group them by job and say what you used each for:
+- **Data manipulation:** pandas, Polars, PyArrow
+- **Distributed processing:** PySpark, Apache Beam
+- **GCP:** `google-cloud-bigquery`, `google-cloud-storage`, `google-cloud-pubsub`, `google-cloud-secret-manager`
+- **Orchestration:** Apache Airflow (providers)
+- **Databases and APIs:** SQLAlchemy, `psycopg`, `requests`
+- **Validation and testing:** Pydantic, Great Expectations, pytest
+- **Config and utilities:** PyYAML, `python-dotenv`, `logging`
+
+Then give one concrete example, e.g. "I used `google-cloud-storage` and pandas to validate incoming files, and the BigQuery client to load them with a schema."
+
+**Follow-ups:**
+- When would you choose Polars over pandas?
+- How do you manage library versions in Composer?
+
+**Difficulty:** Easy
+
+---
+
+### Q32: Coding: count how many times each character occurs in a string.
+
+**Answer:**
+```python
+from collections import Counter
+
+def char_counts(text):
+    return Counter(text)
+
+# Without Counter
+def char_counts_manual(text):
+    counts = {}
+    for ch in text:
+        counts[ch] = counts.get(ch, 0) + 1
+    return counts
+
+print(char_counts("data"))          # Counter({'a': 2, 'd': 1, 't': 1})
+```
+
+O(n) time. To ignore case or spaces, normalize first: `Counter(text.lower().replace(" ", ""))`.
+
+**Follow-ups:**
+- How would you return the most common character?
+- How would you find the first non-repeating character?
+
+**Difficulty:** Easy
+
+---
+
+### Q33: Coding: swap the case of every letter without using `swapcase()`.
+
+**Answer:**
+```python
+def swap_case(text):
+    return "".join(ch.lower() if ch.isupper() else ch.upper() for ch in text)
+
+print(swap_case("Data Eng 101"))    # dATA eNG 101
+```
+
+Non-letters are unchanged, because `upper()` and `lower()` leave them alone. Building a list and joining it avoids repeated string concatenation, which is O(n²).
+
+**Follow-ups:**
+- Why is `"".join(...)` preferred over `+=` in a loop?
+- How would you do this with `str.translate`?
+
+**Difficulty:** Easy
+
+---
+
+### Q34: Coding: common list manipulations.
+
+**Answer:**
+```python
+nums = [1, 2, 3, 4]
+nums[::-1]                                   # reverse: [4, 3, 2, 1]
+[x * x for x in nums]                        # squares: [1, 4, 9, 16]
+
+a, b = ["My", "name"], ["is", "Sam"]
+[x + y for x, y in zip(a, b)]                # index-wise concat: ['Myis', 'nameSam']
+
+first, second = ["Hello ", "Bye "], ["Dear", "Sir"]
+[x + y for x in first for y in second]       # every combination: ['Hello Dear', 'Hello Sir', 'Bye Dear', 'Bye Sir']
+```
+
+`zip` pairs elements by position and stops at the shorter list (use `itertools.zip_longest` to keep going). A nested comprehension produces every combination, like a SQL cross join.
+
+**Follow-ups:**
+- What's the difference between `reversed(nums)`, `nums.reverse()` and `nums[::-1]`?
+- How would you flatten a list of lists?
+
+**Difficulty:** Easy

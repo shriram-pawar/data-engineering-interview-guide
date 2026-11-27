@@ -229,3 +229,25 @@ Good system design answers show you're weighing tradeoffs against real constrain
 - How do you estimate total cost of ownership?
 
 **Difficulty:** Medium
+
+---
+
+### Q16: What does production support involve for a data engineer?
+
+**Answer:**
+- **Monitoring:** check DAG runs, job failures, data freshness, SLA dashboards and alerts.
+- **Incident triage:** identify the failed step, assess impact (which tables, reports and users), and communicate status.
+- **Fixing and recovering:** rerun or backfill idempotent jobs, fix bad data, replay messages, quarantine bad files.
+- **Root-cause analysis:** find why it happened, fix it permanently, and write a post-mortem.
+- **Data quality:** investigate reconciliation mismatches and "numbers look wrong" reports.
+- **Performance and cost:** tune slow jobs and expensive queries.
+- **Change management:** deploy fixes through pull requests and CI, coordinate releases, update runbooks.
+- **Access and requests:** grant access within policy, onboard new sources.
+
+In an interview, describe one real incident end to end: detection → impact → fix → prevention.
+
+**Follow-ups:**
+- How do you prioritize several failures at once?
+- What would you put in a runbook for an on-call engineer?
+
+**Difficulty:** Easy

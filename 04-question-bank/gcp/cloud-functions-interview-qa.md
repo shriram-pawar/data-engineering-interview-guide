@@ -231,3 +231,41 @@ Two things are likely happening together: (1) Pub/Sub's at-least-once delivery m
 - Would `MERGE` or `insertId` work better here?
 
 **Difficulty:** Hard
+
+---
+
+### Q15: Cloud Functions vs Cloud Run: what's the difference?
+
+**Answer:**
+Cloud Functions (2nd gen) now runs on Cloud Run infrastructure and is branded **Cloud Run functions**, but the development models differ:
+
+| | Cloud Run functions | Cloud Run (services and jobs) |
+|---|---|---|
+| Unit you deploy | A single function from source code | A container image |
+| Languages | Supported runtimes (Python, Node.js, Go, Java, …) | Anything that runs in a container |
+| Triggers | HTTP and events (Eventarc, Pub/Sub, Cloud Storage) | HTTP services, Eventarc events, scheduled or run-once **jobs** |
+| Long-running batch work | Limited by the function timeout | **Cloud Run jobs** run for hours |
+
+Use a **function** for small event-driven glue (file landed → start a load). Use **Cloud Run** when you need custom dependencies or binaries, several endpoints, or long batch tasks.
+
+**Follow-ups:**
+- How would you run a nightly 2-hour Python batch process on GCP?
+- What does concurrency per instance change for cost?
+
+**Difficulty:** Easy
+
+---
+
+### Q16: How do you manage dependencies and deploy new versions of a Cloud Function?
+
+**Answer:**
+- **Dependencies:** declare them in `requirements.txt` (Python) or `package.json` (Node.js), with **pinned versions**. Cloud Build installs them at deploy time. Private packages come from Artifact Registry.
+- **Deploying:** each `gcloud functions deploy` (or Terraform / CI deploy) builds a new **revision**. Keep the source in Git and deploy from CI.
+- **Rolling out safely:** 2nd gen functions are Cloud Run services, so you can split traffic between revisions (canary) and **roll back** by sending traffic to the previous revision.
+- **Configuration:** pass environment variables and Secret Manager references at deploy time, not in code.
+
+**Follow-ups:**
+- How would you test a new function revision with 10% of traffic?
+- What would you include in a CI pipeline for functions?
+
+**Difficulty:** Medium
