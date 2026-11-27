@@ -1,0 +1,42 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+
+# Spark / Databricks
+spark-warehouse/
+metastore_db/
+derby.log
+.databricks/
+
+# Airflow
+airflow.db
+airflow.cfg
+logs/
+
+# Secrets & local config
+.env
+*.env
+*credentials*.json
+*service-account*.json
+*.pem
+*.key
+
+# Data files
+*.parquet
+*.csv.gz
+data/
