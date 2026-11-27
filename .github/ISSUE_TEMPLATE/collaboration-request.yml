@@ -1,0 +1,63 @@
+name: Collaboration request
+description: Ask to become a collaborator on this guide.
+title: "[Collaboration request]: "
+labels: ["collaboration-request"]
+assignees:
+  - shriram-pawar
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for wanting to contribute!
+
+        > ⚠️ **Issues are public.** Don't include your email address, phone number, employer or client names, or any other personal details. We'll reply here on this issue, and your GitHub username is all we need to send an invite.
+
+        You can also contribute without collaborator access: fork the repo and open a pull request. See [CONTRIBUTING.md](https://github.com/shriram-pawar/data-engineering-interview-guide/blob/main/CONTRIBUTING.md).
+
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Areas you'd like to contribute to
+      multiple: true
+      options:
+        - 01 Theory (data engineering, warehousing, modeling, lakehouse, migration, ...)
+        - 02 Cloud platforms - GCP
+        - 02 Cloud platforms - Azure Databricks
+        - 03 Code (SQL, Python, PySpark, Airflow, projects)
+        - 04 Question bank
+        - 05 System design case studies
+        - 06 Cheat sheets
+    validations:
+      required: true
+
+  - type: textarea
+    id: plan
+    attributes:
+      label: What would you like to add or improve?
+      description: A few specific topics, questions or case studies you plan to work on.
+      placeholder: |
+        - 15 questions on Delta Live Tables
+        - A case study on migrating an on-prem Hadoop pipeline to Databricks
+    validations:
+      required: true
+
+  - type: textarea
+    id: background
+    attributes:
+      label: Relevant experience (optional)
+      description: Tools and platforms you've worked with. Please don't name employers or clients.
+      placeholder: 4 years with BigQuery, Dataflow and Airflow; some Databricks.
+
+  - type: checkboxes
+    id: agreements
+    attributes:
+      label: Before you submit
+      options:
+        - label: I've read [CONTRIBUTING.md](https://github.com/shriram-pawar/data-engineering-interview-guide/blob/main/CONTRIBUTING.md) and will work on `feature/<topic>` or `fix/<topic>` branches through pull requests.
+          required: true
+        - label: I'll only contribute original content, with nothing copied from paid courses, LeetCode, DataLemur or other copyrighted sources.
+          required: true
+        - label: I'll anonymize anything based on real work (no client or company names, and generic data and numbers).
+          required: true
+        - label: I haven't included my email address or other personal details in this issue.
+          required: true
