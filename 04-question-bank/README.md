@@ -29,4 +29,6 @@ Every question file **must** use this format (multiple questions per file are fi
 **Difficulty:** Easy | Medium | Hard
 ```
 
+For SQL questions, add a `**BigQuery version:**` block after the answer wherever BigQuery syntax differs (dates and intervals, `QUALIFY`, `UNNEST`, `PIVOT`, percentiles, query parameters, DML patterns).
+
 See [`_template.md`](_template.md) for a starter file.

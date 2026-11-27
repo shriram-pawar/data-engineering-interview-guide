@@ -4,6 +4,8 @@ Original practice problems on a single fictional schema. Load the data from
 [`03-code/sql/practice-schema.sql`](../../03-code/sql/practice-schema.sql); runnable solutions are in
 [`03-code/sql/practice-solutions.sql`](../../03-code/sql/practice-solutions.sql).
 
+**BigQuery:** load [`practice-schema-bigquery.sql`](../../03-code/sql/practice-schema-bigquery.sql); every solution is in [`practice-solutions-bigquery.sql`](../../03-code/sql/practice-solutions-bigquery.sql). Problems marked 🅱 have a **BigQuery version** below the answer because the syntax differs; the others run unchanged once tables are prefixed with `freshcart.`.
+
 Delivered revenue for an order = `SUM(quantity * unit_price)` over its `order_items`, counting only orders with `status = 'delivered'`.
 
 > Format: Question · Answer · Follow-ups · Difficulty
@@ -22,18 +24,18 @@ Delivered revenue for an order = `SUM(quantity * unit_price)` over its `order_it
 | 10 | Data quality: checkout prices that don't match the price list | range join, LEAD, data validation | Medium |
 | 11 | Customers who bought every Dairy-Free product | relational division | Hard |
 | 12 | Running revenue total per region | window aggregate, running total | Medium |
-| 13 | 7-day moving average of revenue | calendar spine, RANGE frame | Hard |
-| 14 | Monthly revenue by category (pivot) | conditional aggregation, pivot | Medium |
+| 13 | 7-day moving average of revenue 🅱 | calendar spine, RANGE frame | Hard |
+| 14 | Monthly revenue by category (pivot) 🅱 | conditional aggregation, pivot | Medium |
 | 15 | Same-day delivery rate | conditional aggregation, ratios | Medium |
-| 16 | 30-day repeat purchase rate | first event, self-join / EXISTS | Medium |
+| 16 | 30-day repeat purchase rate 🅱 | first event, self-join / EXISTS | Medium |
 | 17 | Top 2 products per category by revenue | DENSE_RANK per group, ties | Medium |
-| 18 | Customers who ordered on 3+ consecutive days | gaps and islands | Hard |
+| 18 | Customers who ordered on 3+ consecutive days 🅱 | gaps and islands | Hard |
 | 19 | Contiguous ranges of pipeline success and failure | gaps and islands, LAG | Hard |
-| 20 | Histogram of orders per customer, including zero | number spine, LEFT JOIN, counting | Hard |
+| 20 | Histogram of orders per customer, including zero 🅱 | number spine, LEFT JOIN, counting | Hard |
 | 21 | Last package that fits in the van | running total | Medium |
-| 22 | Median order value per region | ordered-set aggregate | Hard |
+| 22 | Median order value per region 🅱 | ordered-set aggregate | Hard |
 | 23 | Remove duplicate events | ROW_NUMBER, deduplication | Medium |
-| 24 | Sessionize app events (30-minute inactivity gap) | LAG, running sum, sessionization | Hard |
+| 24 | Sessionize app events (30-minute inactivity gap) 🅱 | LAG, running sum, sessionization | Hard |
 | 25 | Conversion funnel | conditional aggregation, ratios | Medium |
 | 26 | Signups by referral source | COALESCE, self-join, NULL grouping | Easy |
 
@@ -535,6 +537,31 @@ Expected output:
 | 2026-02-15 | 0 | 1.71 |
 | 2026-02-16 | 4.4 | 0.63 |
 
+**BigQuery version:**
+```sql
+WITH days AS (
+  SELECT day
+  FROM UNNEST(GENERATE_DATE_ARRAY('2026-01-26', '2026-02-16')) AS day
+),
+daily AS (
+  SELECT o.order_date AS day, SUM(oi.quantity * oi.unit_price) AS revenue
+  FROM freshcart.orders o
+  JOIN freshcart.order_items oi ON oi.order_id = o.order_id
+  WHERE o.status = 'delivered'
+  GROUP BY o.order_date
+),
+filled AS (
+  SELECT d.day, COALESCE(daily.revenue, 0) AS revenue
+  FROM days d
+  LEFT JOIN daily ON daily.day = d.day
+)
+SELECT day, revenue,
+       ROUND(AVG(revenue) OVER (ORDER BY day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2) AS avg_7d
+FROM filled
+WHERE day >= DATE '2026-02-01'
+ORDER BY day;
+```
+
 **Follow-ups:**
 - How would you do this with `RANGE BETWEEN INTERVAL '6 days' PRECEDING AND CURRENT ROW` instead?
 - When is it wrong to fill missing days with 0?
@@ -571,6 +598,36 @@ Expected output:
 | 2026-01 | 30.5 | 15.5 | 1.8 | 0 |
 | 2026-02 | 18.3 | 11 | 13.8 | 12 |
 | 2026-03 | 0 | 18.5 | 8.4 | 12 |
+
+**BigQuery version:**
+```sql
+-- Option 1: conditional aggregation with FORMAT_DATE
+SELECT FORMAT_DATE('%Y-%m', o.order_date) AS month,
+       SUM(IF(p.category = 'Dairy-Free', oi.quantity * oi.unit_price, 0)) AS dairy_free,
+       SUM(IF(p.category = 'Bakery',     oi.quantity * oi.unit_price, 0)) AS bakery,
+       SUM(IF(p.category = 'Produce',    oi.quantity * oi.unit_price, 0)) AS produce,
+       SUM(IF(p.category = 'Pantry',     oi.quantity * oi.unit_price, 0)) AS pantry
+FROM freshcart.orders o
+JOIN freshcart.order_items oi ON oi.order_id = o.order_id
+JOIN freshcart.products p ON p.product_id = oi.product_id
+WHERE o.status = 'delivered'
+GROUP BY month
+ORDER BY month;
+
+-- Option 2: the PIVOT operator (missing combinations come back as NULL, not 0)
+SELECT *
+FROM (
+  SELECT FORMAT_DATE('%Y-%m', o.order_date) AS month, p.category,
+         oi.quantity * oi.unit_price AS amount
+  FROM freshcart.orders o
+  JOIN freshcart.order_items oi ON oi.order_id = o.order_id
+  JOIN freshcart.products p ON p.product_id = oi.product_id
+  WHERE o.status = 'delivered'
+)
+PIVOT (SUM(amount) FOR category IN ('Dairy-Free' AS dairy_free, 'Bakery' AS bakery,
+                                    'Produce' AS produce, 'Pantry' AS pantry))
+ORDER BY month;
+```
 
 **Follow-ups:**
 - How would you do this with BigQuery's `PIVOT` operator?
@@ -644,6 +701,30 @@ Expected output:
 | repeat_30d_pct |
 |---|
 | 50 |
+
+**BigQuery version:**
+```sql
+WITH delivered AS (
+  SELECT customer_id, order_date
+  FROM freshcart.orders
+  WHERE status = 'delivered'
+),
+firsts AS (
+  SELECT customer_id, MIN(order_date) AS first_date
+  FROM delivered
+  GROUP BY customer_id
+),
+flags AS (
+  SELECT f.customer_id,
+         LOGICAL_OR(d.order_date > f.first_date
+                    AND d.order_date <= DATE_ADD(f.first_date, INTERVAL 30 DAY)) AS repeated
+  FROM firsts f
+  JOIN delivered d USING (customer_id)
+  GROUP BY f.customer_id
+)
+SELECT ROUND(100 * AVG(IF(repeated, 1, 0)), 1) AS repeat_30d_pct
+FROM flags;
+```
 
 **Follow-ups:**
 - How would you turn this into a monthly cohort retention table?
@@ -731,6 +812,25 @@ Expected output:
 | 1 | 2026-01-03 | 2026-01-05 | 3 |
 | 5 | 2026-02-07 | 2026-02-09 | 3 |
 
+**BigQuery version:**
+```sql
+WITH days AS (
+  SELECT DISTINCT customer_id, order_date
+  FROM freshcart.orders
+  WHERE status = 'delivered'
+),
+numbered AS (
+  SELECT customer_id, order_date,
+         ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date) AS rn
+  FROM days
+)
+SELECT customer_id, MIN(order_date) AS streak_start, MAX(order_date) AS streak_end, COUNT(*) AS days
+FROM numbered
+GROUP BY customer_id, DATE_SUB(order_date, INTERVAL rn DAY)
+HAVING COUNT(*) >= 3
+ORDER BY customer_id;
+```
+
 **Follow-ups:**
 - How would you find the longest streak per customer?
 - How would you adapt this to allow a gap of at most one day?
@@ -816,6 +916,26 @@ Expected output:
 | 3 | 2 |
 | 4 | 1 |
 
+**BigQuery version:**
+```sql
+WITH per_customer AS (
+  SELECT c.customer_id, COUNT(o.order_id) AS n_orders
+  FROM freshcart.customers c
+  LEFT JOIN freshcart.orders o ON o.customer_id = c.customer_id AND o.status = 'delivered'
+  GROUP BY c.customer_id
+),
+buckets AS (
+  SELECT n AS n_orders
+  FROM (SELECT MAX(n_orders) AS max_orders FROM per_customer),
+       UNNEST(GENERATE_ARRAY(0, max_orders)) AS n
+)
+SELECT b.n_orders, COUNT(pc.customer_id) AS customers
+FROM buckets b
+LEFT JOIN per_customer pc ON pc.n_orders = b.n_orders
+GROUP BY b.n_orders
+ORDER BY b.n_orders;
+```
+
 **Follow-ups:**
 - What goes wrong if you write `COUNT(*)` instead of `COUNT(o.order_id)`?
 - How would you generate the spine on an engine without `generate_series`?
@@ -889,6 +1009,27 @@ Expected output:
 | North | 9 |
 | South | 14 |
 | West | 11.9 |
+
+**BigQuery version:**
+```sql
+-- In BigQuery, PERCENTILE_CONT is an analytic (window) function, not an aggregate
+WITH order_revenue AS (
+  SELECT c.region, o.order_id, SUM(oi.quantity * oi.unit_price) AS revenue
+  FROM freshcart.orders o
+  JOIN freshcart.customers c ON c.customer_id = o.customer_id
+  JOIN freshcart.order_items oi ON oi.order_id = o.order_id
+  WHERE o.status = 'delivered'
+  GROUP BY c.region, o.order_id
+)
+SELECT DISTINCT region,
+       PERCENTILE_CONT(revenue, 0.5) OVER (PARTITION BY region) AS median_revenue
+FROM order_revenue
+ORDER BY region;
+
+-- For very large tables, an approximate aggregate is much cheaper:
+-- SELECT region, APPROX_QUANTILES(revenue, 2)[OFFSET(1)] AS approx_median
+-- FROM order_revenue GROUP BY region;
+```
 
 **Follow-ups:**
 - How would you compute the median without any percentile function?
@@ -981,6 +1122,32 @@ Expected output:
 | 2 | 2 | 2026-02-07 10:40 | 2026-02-07 10:45 | 2 |
 | 5 | 1 | 2026-02-07 08:00 | 2026-02-07 08:15 | 3 |
 | 8 | 1 | 2026-02-07 12:00 | 2026-02-07 12:00 | 1 |
+
+**BigQuery version:**
+```sql
+WITH dedup AS (
+  SELECT DISTINCT customer_id, event_time, event_type FROM freshcart.app_events
+),
+flagged AS (
+  SELECT *,
+         CASE WHEN TIMESTAMP_DIFF(event_time,
+                                  LAG(event_time) OVER (PARTITION BY customer_id ORDER BY event_time),
+                                  MINUTE) <= 30
+              THEN 0 ELSE 1 END AS new_session
+  FROM dedup
+),
+sessions AS (
+  SELECT *,
+         SUM(new_session) OVER (PARTITION BY customer_id ORDER BY event_time
+                                ROWS UNBOUNDED PRECEDING) AS session_no
+  FROM flagged
+)
+SELECT customer_id, session_no,
+       MIN(event_time) AS session_start, MAX(event_time) AS session_end, COUNT(*) AS events
+FROM sessions
+GROUP BY customer_id, session_no
+ORDER BY customer_id, session_no;
+```
 
 **Follow-ups:**
 - How would you compute the average session length?

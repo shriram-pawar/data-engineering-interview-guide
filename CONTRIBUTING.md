@@ -2,6 +2,12 @@
 
 Thanks for helping improve the Data Engineering Interview Guide!
 
+## Requesting Access
+
+Open a **[Collaboration request](https://github.com/shriram-pawar/data-engineering-interview-guide/issues/new?template=collaboration-request.yml)** issue. Issues are public, so don't include your email address or other personal details: your GitHub username is all that's needed for an invite.
+
+You don't need access to contribute: you can fork the repo and open a pull request from your fork.
+
 ## Workflow
 
 > **Direct pushes to `main` are not allowed.** All changes go through a pull request.
@@ -32,8 +38,10 @@ Thanks for helping improve the Data Engineering Interview Guide!
 ## Content Guidelines
 
 - Put content in the right folder (see the main [README](README.md)).
-- Question-bank files must follow the format in [`04-question-bank/README.md`](04-question-bank/README.md): **Question, Answer, Follow-ups, Difficulty**.
-- System design case studies must include `README.md`, `architecture.md` (with a Mermaid diagram), and a `diagrams/` folder.
+- **Original content only.** Don't copy paid course material, LeetCode, DataLemur or other copyrighted content. Explain concepts in your own words, with your own schemas and data.
+- Question-bank files must follow the format in [`04-question-bank/README.md`](04-question-bank/README.md): **Question, Answer, Follow-ups, Difficulty**. For SQL, add a **BigQuery version** wherever the syntax differs.
+- System design case studies follow the layout in [`05-system-design/README.md`](05-system-design/README.md). Start from [`templates/case-study/`](05-system-design/templates/case-study/).
+- **Anonymize anything based on real work:** no client or company names, and use generic data and numbers.
 - Use lowercase, hyphen-separated file names (e.g. `window-functions.md`).
 - Make sure code samples run, and say which versions you used (Python, Spark, Airflow, etc.).
 - Don't commit credentials, keys, or proprietary/confidential data.

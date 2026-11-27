@@ -1,6 +1,6 @@
 # 05 · System Design
 
-Data system design case studies and a reusable design-doc template.
+Data platform case studies (mostly migrations) and templates for design interviews.
 
 ## Structure
 
@@ -8,11 +8,25 @@ Data system design case studies and a reusable design-doc template.
 05-system-design/
 ├── case-studies/
 │   └── <project-name>/
-│       ├── README.md         # Problem statement, requirements, summary
-│       ├── architecture.md   # Detailed design with a Mermaid diagram
-│       └── diagrams/         # Exported images / source files
+│       ├── diagrams/                # editable .drawio or .excalidraw files + PNG exports
+│       ├── README.md                # overview, business problem, summary
+│       ├── legacy-architecture.md
+│       ├── target-architecture.md
+│       ├── migration-design.md      # approach, stack mapping (replaced / kept / retired), validation, cutover
+│       └── lessons-learned.md       # challenges, trade-offs, interview talking points
 └── templates/
-    └── design-doc-template.md
+    ├── case-study/                  # copy this folder to start a new case study
+    └── design-doc-template.md       # for greenfield "design a system" interview questions
 ```
 
-To add a case study, copy `templates/design-doc-template.md` and follow the structure above. See `case-studies/sample-gcp-batch-pipeline/` for an example.
+## Adding a Case Study
+
+1. Copy `templates/case-study/` to `case-studies/<project-name>/`, using a lowercase, hyphenated name.
+2. Fill in each file, and add the editable diagrams with PNG exports to `diagrams/`.
+3. **If it's based on real work, anonymize it:** no client or company names, and use generic data and numbers.
+
+## Case Studies
+
+| Case study | Summary |
+|---|---|
+| [sample-retail-sales-migration](case-studies/sample-retail-sales-migration/) | On-prem SQL Server/SSIS sales warehouse to Cloud Storage, Dataproc Serverless, BigQuery, Composer and Looker (sample) |

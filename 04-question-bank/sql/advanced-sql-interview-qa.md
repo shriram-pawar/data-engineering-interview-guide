@@ -184,9 +184,18 @@ WHERE id NOT IN (
 );
 ```
 
+**BigQuery version:** rather than a row-by-row `DELETE`, rebuild the table, keeping one row per key. This is a single scan and avoids DML quotas on large tables.
+```sql
+CREATE OR REPLACE TABLE mydataset.users AS
+SELECT *
+FROM mydataset.users
+WHERE TRUE
+QUALIFY ROW_NUMBER() OVER (PARTITION BY email ORDER BY id) = 1;
+```
+
 **Follow-ups:**
-- How would you do this with `ROW_NUMBER()`?
-- How would you do it in BigQuery, where `DELETE` with a self-join is limited?
+- How would you keep the most recently updated row instead of the lowest `id`?
+- On a large partitioned table, what are the trade-offs between `CREATE OR REPLACE` and `DELETE` (cost, time travel, concurrent writers)?
 
 **Difficulty:** Medium
 
@@ -271,6 +280,15 @@ Running one query to get a list of items, then a separate query *per item* to fe
 -- Instead of: LIMIT 20 OFFSET 100000  (slow)
 SELECT * FROM orders
 WHERE order_id > :last_seen_order_id
+ORDER BY order_id
+LIMIT 20;
+```
+
+**BigQuery version:** named query parameters use `@`, set in the console's query settings, with `bq query --parameter`, or through the client library.
+```sql
+SELECT *
+FROM mydataset.orders
+WHERE order_id > @last_seen_order_id
 ORDER BY order_id
 LIMIT 20;
 ```

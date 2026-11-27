@@ -24,7 +24,7 @@ A structured, community-maintained guide for preparing for **Data Engineering** 
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md). In short:
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md). To become a collaborator, open a [Collaboration request](https://github.com/shriram-pawar/data-engineering-interview-guide/issues/new?template=collaboration-request.yml) issue. In short:
 
 1. Create a `feature/<topic>` or `fix/<topic>` branch from `main`.
 2. Commit your changes and open a pull request.
