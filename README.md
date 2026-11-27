@@ -9,7 +9,7 @@ A structured, community-maintained guide for preparing for **Data Engineering** 
 | [`01-theory/`](01-theory/) | Core concepts: data engineering, warehousing, modeling, lakehouse, migration, modernization, analytics, data science basics |
 | [`02-cloud-platforms/`](02-cloud-platforms/) | Platform-specific notes for GCP and Azure Databricks |
 | [`03-code/`](03-code/) | Runnable SQL, Python, PySpark, Airflow DAGs, and end-to-end projects |
-| [`04-question-bank/`](04-question-bank/) | Interview questions with answers, follow-ups, and difficulty levels |
+| [`04-question-bank/`](04-question-bank/) | Interview questions with answers, follow-ups, and difficulty levels, including [real-world asked questions](04-question-bank/real-world-asked/) |
 | [`05-system-design/`](05-system-design/) | Case studies with architecture diagrams, plus a design-doc template |
 | [`06-cheat-sheets/`](06-cheat-sheets/) | One-page quick references for last-minute revision |
 | [`assets/images/`](assets/images/) | Shared images and diagrams |
@@ -29,6 +29,10 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md). To be
 1. Create a `feature/<topic>` or `fix/<topic>` branch from `main`.
 2. Commit your changes and open a pull request.
 3. A code owner reviews and approves before merging. Direct pushes to `main` are not allowed.
+
+## Contributors
+
+Thanks to **Nilesh** and **Rishikesh** for interview question suggestions.
 
 ---
 

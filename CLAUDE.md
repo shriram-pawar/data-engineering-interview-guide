@@ -61,6 +61,20 @@ Every question in `04-question-bank/` uses this format:
 - For SQL, **add a BigQuery version** wherever BigQuery syntax differs (dates, intervals, `QUALIFY`, `UNNEST`, `PIVOT`, etc.).
 - SQL practice problems use the fictional FreshCart schema in `03-code/sql/practice-schema.sql`.
 
+## Real-world asked questions
+
+`04-question-bank/real-world-asked/` holds questions people were **actually asked** in interviews (see its `README.md`).
+
+- **One file per skill** (`sql.md`, `gcp.md`, …), created only when it has questions; add a new skill file if none fits. Never create empty files.
+- **One `## <Company>` section per company**, or `## Unspecified company`.
+- Each question adds three fields to the standard format: `**Role:**`, `**Round:**` and `**Asked:**` (month and year). Leave them blank when unknown.
+- **Contributor rules:** only questions the contributor was asked themselves; no copied posts, blogs or course content; nothing under NDA; no interviewer or candidate names; no client names, internal project names, real project IDs or datasets.
+- **When importing notes from others**, sort each question into one of three groups:
+  - **A.** Clearly copied from websites or posts: rewrite in original wording, skip duplicates, and put it in the regular topic folders (not `real-world-asked/`).
+  - **B.** Looks genuinely asked (personal wording, specific scenario, company or round mentioned): put it in `real-world-asked/`.
+  - **C.** Not sure: don't import; list it for the user to check with the source.
+- Don't commit source documents or screenshots. Add an image to `assets/images/` only if it's original, has no personal details or logos, and isn't copied from a website; otherwise recreate diagrams as Mermaid.
+
 ## System design case studies
 
 Each case study goes in `05-system-design/case-studies/<project-name>/`:

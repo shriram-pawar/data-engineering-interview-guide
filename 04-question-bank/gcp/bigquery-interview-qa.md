@@ -325,3 +325,73 @@ WHERE rn = 1;
 - How do you alert on cost spikes?
 
 **Difficulty:** Medium
+
+---
+
+### Q21: What is an authorized view, and when would you use one?
+
+**Answer:**
+An authorized view lets users query a view **without having any access to the underlying tables**. You put the view in a separate dataset, grant users access to that dataset only, and then authorize the view on the source dataset ("Sharing → Authorize views"). The view runs with access to the source data, but users only ever see the columns and rows the view exposes.
+
+Typical uses: sharing a filtered or aggregated slice of a sensitive table with another team, or exposing only non-PII columns. Related options are **authorized datasets** (authorize every view in a dataset at once) and **authorized routines** (the same idea for UDFs and table functions).
+
+**Follow-ups:**
+- How does an authorized view compare with row-level access policies and column-level policy tags?
+- What happens to users' access if someone changes the view's SQL?
+
+**Difficulty:** Medium
+
+---
+
+### Q22: How does time travel work in BigQuery, and how do you recover a deleted table?
+
+**Answer:**
+BigQuery keeps a table's history for a **time-travel window** (7 days by default, configurable per dataset between 2 and 7 days). Within that window you can query a past state:
+
+```sql
+SELECT *
+FROM `mydataset.orders`
+  FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 HOUR);
+```
+
+To recover a **deleted** table, copy it from a point in time before the deletion using a snapshot decorator (milliseconds, here one hour ago):
+
+```bash
+bq cp mydataset.orders@-3600000 mydataset.orders_restored
+```
+
+After the time-travel window, data stays in **fail-safe** for another 7 days. It can't be queried there and can only be recovered through Google Cloud support. For longer-term protection, take **table snapshots** or copies on a schedule.
+
+**Follow-ups:**
+- How would you undo a bad `UPDATE` that ran 30 minutes ago?
+- How does the time-travel window affect storage cost on the physical storage billing model?
+
+**Difficulty:** Medium
+
+---
+
+### Q23: What are pseudo-columns in BigQuery?
+
+**Answer:**
+Pseudo-columns are system columns you can query but that aren't part of the table schema or `SELECT *`:
+
+| Pseudo-column | Where | Use |
+|---|---|---|
+| `_PARTITIONTIME` / `_PARTITIONDATE` | Ingestion-time partitioned tables | Filter or select by the partition a row landed in |
+| `_TABLE_SUFFIX` | Wildcard queries (`FROM \`mydataset.events_*\``) | Filter which sharded tables are read |
+| `_FILE_NAME` | External tables over Cloud Storage | See which file each row came from |
+
+```sql
+SELECT _TABLE_SUFFIX AS day, COUNT(*) AS events
+FROM `mydataset.events_*`
+WHERE _TABLE_SUFFIX BETWEEN '20240101' AND '20240107'
+GROUP BY day;
+```
+
+Filtering on `_PARTITIONTIME` or `_TABLE_SUFFIX` prunes the data read, so it reduces cost.
+
+**Follow-ups:**
+- Why are date-sharded tables (`events_YYYYMMDD`) discouraged in favor of partitioned tables?
+- How would you include `_PARTITIONTIME` in the output of a query?
+
+**Difficulty:** Easy

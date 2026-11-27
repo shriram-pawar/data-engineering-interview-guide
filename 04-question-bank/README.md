@@ -11,6 +11,9 @@ Interview questions organized by topic.
 | `data-warehousing/` | Modeling, warehousing, and architecture |
 | `scenario-based/` | Real-world troubleshooting and design scenarios |
 | `behavioral/` | STAR-format behavioral questions |
+| `dbt/` | dbt models, tests, snapshots, incremental loads, deployment |
+| `devops/` | Git, Terraform and CI/CD for data platforms |
+| [`real-world-asked/`](real-world-asked/) | Questions people were **actually asked** in interviews, by skill and company ([rules](real-world-asked/README.md)) |
 
 ## Question Format
 

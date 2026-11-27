@@ -368,3 +368,203 @@ This is why **idempotency** matters: design tasks so reruns produce the same end
 - Which Composer worker and scheduler settings would you scale first?
 
 **Difficulty:** Hard
+
+---
+
+### Q21: Explain Airflow's architecture.
+
+**Answer:**
+```mermaid
+flowchart LR
+    DAGS[(DAG folder)] --> SCH[Scheduler]
+    DAGS --> WS[Web server / UI]
+    SCH -->|queues tasks| EX[Executor]
+    EX --> Q[[Queue]]
+    Q --> W1[Worker 1]
+    Q --> W2[Worker N]
+    SCH <--> DB[(Metadata database)]
+    W1 --> DB
+    W2 --> DB
+    WS <--> DB
+```
+
+- **DAG folder:** Python files defining DAGs. In Composer, this is the environment's `dags/` folder in Cloud Storage.
+- **Scheduler:** parses DAGs, decides which task instances are ready (schedule and dependencies), and hands them to the executor.
+- **Executor:** decides *how* tasks run (Local, Celery, Kubernetes). With Celery, tasks go onto a **queue**.
+- **Workers:** execute the tasks and report state.
+- **Metadata database:** stores DAG runs, task states, XComs, connections and variables.
+- **Web server:** the UI for monitoring, triggering and inspecting logs.
+- (Airflow 2+) **Triggerer:** runs deferrable operators asynchronously.
+
+**Follow-ups:**
+- What happens to running tasks if the scheduler restarts?
+- Why does heavy top-level code in DAG files slow down the whole environment?
+
+**Difficulty:** Easy
+
+---
+
+### Q22: Cloud Composer vs Cloud Scheduler: when do you use each?
+
+**Answer:**
+| | Cloud Scheduler | Cloud Composer |
+|---|---|---|
+| What it is | Managed cron | Managed Apache Airflow |
+| Triggers | HTTP, Pub/Sub, App Engine targets on a schedule | Full workflows (DAGs) |
+| Dependencies between steps | None | Yes, with branching, sensors and cross-DAG links |
+| Retries, backfills, history, UI | Basic retry only | Rich retries, backfills, run history and UI |
+| Cost | Cents per job | An always-on environment (hundreds of dollars a month and up) |
+
+Use **Cloud Scheduler** for a single scheduled call (e.g. trigger a Cloud Run job nightly). Use **Composer** when you have multi-step pipelines with dependencies, retries, SLAs and backfills.
+
+**Follow-ups:**
+- What other lightweight orchestration options does GCP have (Workflows)?
+- How would you trigger a Composer DAG from Cloud Scheduler?
+
+**Difficulty:** Easy
+
+---
+
+### Q23: How do you create dependencies between different DAGs?
+
+**Answer:**
+- **`ExternalTaskSensor`** (pull): the downstream DAG waits for a task or DAG in another DAG to succeed. The logical dates must line up, or you set `execution_delta` / `execution_date_fn`. Use `mode="reschedule"` or deferrable mode so it doesn't hold a worker slot.
+- **`TriggerDagRunOperator`** (push): the upstream DAG triggers the downstream DAG when it finishes, optionally passing `conf`.
+- **Data-aware scheduling** (Airflow 2.4+ Datasets, called Assets in Airflow 3): the upstream task declares it updates a dataset, and the downstream DAG is scheduled on that dataset instead of a time.
+
+Prefer data-aware scheduling or `TriggerDagRunOperator` for new designs. Sensors that depend on matching schedules are fragile.
+
+**Follow-ups:**
+- What goes wrong with `ExternalTaskSensor` when the two DAGs have different schedules?
+- How would you pass a run date from the upstream DAG to the downstream one?
+
+**Difficulty:** Medium
+
+---
+
+### Q24: You have three upstream jobs, and a fourth job must run only if all three succeed. How do you implement this?
+
+**Answer:**
+Within one DAG, set all three as upstream of the fourth task. The default trigger rule `all_success` already means "run only when every upstream task succeeded":
+
+```python
+[job_a, job_b, job_c] >> job_d          # job_d uses trigger_rule="all_success" (default)
+```
+
+If the three jobs live in **different DAGs**, either:
+- put three `ExternalTaskSensor`s (or a dataset with three producers) before `job_d`, or
+- have the jobs update **Datasets** and schedule the fourth DAG on all three: `schedule=[ds_a, ds_b, ds_c]` runs only after each has been updated.
+
+Add a `timeout` on sensors and an alert, so a missing upstream doesn't silently stall the pipeline.
+
+**Follow-ups:**
+- How would you run `job_d` if at least one upstream succeeded (`one_success`)?
+- How would you always run a cleanup task regardless of failures (`all_done`)?
+
+**Difficulty:** Easy
+
+---
+
+### Q25: How do you write a custom operator in Airflow?
+
+**Answer:**
+Subclass `BaseOperator`, accept parameters in `__init__`, and put the work in `execute(context)`:
+
+```python
+from airflow.models import BaseOperator
+
+class RowCountCheckOperator(BaseOperator):
+    template_fields = ("table",)          # allows Jinja such as {{ ds }} in the table name
+
+    def __init__(self, table: str, min_rows: int, **kwargs):
+        super().__init__(**kwargs)
+        self.table = table
+        self.min_rows = min_rows
+
+    def execute(self, context):
+        from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
+        rows = BigQueryHook(use_legacy_sql=False).get_first(f"SELECT COUNT(*) FROM `{self.table}`")[0]
+        self.log.info("Table %s has %s rows", self.table, rows)
+        if rows < self.min_rows:
+            raise ValueError(f"{self.table}: expected at least {self.min_rows} rows, got {rows}")
+        return rows                       # pushed to XCom
+```
+
+Notes: use **hooks** for connections; keep imports of heavy libraries inside `execute`; the old `@apply_defaults` decorator isn't needed since Airflow 2.0.
+
+**Follow-ups:**
+- How would you package a custom operator for Cloud Composer (plugins vs PyPI package)?
+- When would you write a custom hook as well?
+
+**Difficulty:** Medium
+
+---
+
+### Q26: How do you generate many similar DAGs without copying code?
+
+**Answer:**
+Use a **DAG factory**: loop over a config and create one DAG per entry, registering each at module level.
+
+```python
+from datetime import datetime
+from airflow import DAG
+from airflow.operators.empty import EmptyOperator
+
+SOURCES = ["orders", "customers", "payments"]          # or load from a YAML file next to the DAG
+
+for source in SOURCES:
+    with DAG(
+        dag_id=f"{source}_daily_load",
+        start_date=datetime(2024, 1, 1),
+        schedule="@daily",
+        catchup=False,
+        tags=["generated"],
+    ) as dag:
+        EmptyOperator(task_id="extract") >> EmptyOperator(task_id="load")
+    globals()[dag.dag_id] = dag                           # make each DAG discoverable
+```
+
+Things to watch:
+- **Unique `dag_id`s.**
+- **Read config from a local file, not from an API or database at parse time.** The scheduler re-parses files frequently.
+- Keep the generated count reasonable, since parse time grows with it.
+- Consider **dynamic task mapping** instead when you need many tasks in one DAG rather than many DAGs.
+
+**Follow-ups:**
+- What's the difference between generating DAGs and dynamic task mapping (`.expand()`)?
+- How would you remove a generated DAG cleanly?
+
+**Difficulty:** Medium
+
+---
+
+### Q27: How do you run a Dataflow job from Cloud Composer?
+
+**Answer:**
+Use the Google provider operators:
+- **`DataflowStartFlexTemplateOperator`**: launch a Flex Template (recommended for new pipelines).
+- **`DataflowTemplatedJobStartOperator`**: launch a classic template.
+- **`BeamRunPythonPipelineOperator`** / `BeamRunJavaPipelineOperator`: run pipeline code directly with `runner="DataflowRunner"`.
+
+```python
+from airflow.providers.google.cloud.operators.dataflow import DataflowStartFlexTemplateOperator
+
+run_pipeline = DataflowStartFlexTemplateOperator(
+    task_id="run_pipeline",
+    project_id="my-project",
+    location="us-central1",
+    body={"launchParameter": {
+        "jobName": "orders-{{ ds_nodash }}",
+        "containerSpecGcsPath": "gs://my-bucket/templates/orders.json",
+        "parameters": {"input": "gs://my-bucket/raw/{{ ds }}/*.csv"},
+    }},
+)
+```
+
+Pass the run date through templated parameters, so reruns and backfills process the right partition.
+
+**Follow-ups:**
+- Should the Composer task wait for the Dataflow job to finish? What are the trade-offs?
+- How would you handle a Dataflow job that is still running when the DAG retries?
+
+**Difficulty:** Medium

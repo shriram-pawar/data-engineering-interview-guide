@@ -11,3 +11,5 @@ Add question files here using the format in [`../README.md`](../README.md).
 - [Cloud Storage — Interview Question Bank](cloud-storage-interview-qa.md)
 - [GCP Dataflow (Apache Beam) — Interview Question Bank](dataflow-interview-qa.md)
 - [Dataproc — Interview Question Bank](dataproc-interview-qa.md)
+- [GCP Platform — Interview Question Bank](gcp-platform-interview-qa.md)
+- [Pub/Sub — Interview Question Bank](pubsub-interview-qa.md)
