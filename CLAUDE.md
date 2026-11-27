@@ -81,4 +81,6 @@ Each case study goes in `05-system-design/case-studies/<project-name>/`:
 ## Collaboration
 
 - People request access through the **"Collaboration request" issue form**.
-- The form must **not** have an email field, because issues are public.
+- The form must **not** have an email field, because issues are public. GitHub username is required; full name and LinkedIn URL are optional and labelled as public.
+- Blank issues are disabled (`.github/ISSUE_TEMPLATE/config.yml`).
+- Contributors grant Shriram Pawar the rights to their submissions (see "Rights to Contributions" in `CONTRIBUTING.md`).

@@ -10,9 +10,32 @@ body:
       value: |
         Thanks for wanting to contribute!
 
-        > ⚠️ **Issues are public.** Don't include your email address, phone number, employer or client names, or any other personal details. We'll reply here on this issue, and your GitHub username is all we need to send an invite.
+        > ⚠️ **Issues are public.** Everything you enter here, including your name and LinkedIn URL, is visible to anyone. Only share what you're comfortable making public. **Don't include your email address, phone number, or employer or client names.** We'll reply on this issue.
 
         You can also contribute without collaborator access: fork the repo and open a pull request. See [CONTRIBUTING.md](https://github.com/shriram-pawar/data-engineering-interview-guide/blob/main/CONTRIBUTING.md).
+
+  - type: input
+    id: full-name
+    attributes:
+      label: Full name (optional)
+      description: Shown publicly on this issue.
+      placeholder: Jane Doe
+
+  - type: input
+    id: github-username
+    attributes:
+      label: GitHub username
+      description: The account to invite as a collaborator.
+      placeholder: janedoe
+    validations:
+      required: true
+
+  - type: input
+    id: linkedin-url
+    attributes:
+      label: LinkedIn profile URL (optional)
+      description: Shown publicly on this issue.
+      placeholder: https://www.linkedin.com/in/janedoe
 
   - type: dropdown
     id: areas
@@ -59,5 +82,7 @@ body:
           required: true
         - label: I'll anonymize anything based on real work (no client or company names, and generic data and numbers).
           required: true
-        - label: I haven't included my email address or other personal details in this issue.
+        - label: I understand this issue is public, and I haven't included my email address or phone number.
+          required: true
+        - label: I agree that by contributing, I grant Shriram Pawar the rights to my submissions, as described in [CONTRIBUTING.md](https://github.com/shriram-pawar/data-engineering-interview-guide/blob/main/CONTRIBUTING.md#rights-to-contributions).
           required: true
