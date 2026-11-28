@@ -33,8 +33,17 @@ Questions that people were **actually asked** in data engineering interviews. Th
 | File | Skill |
 |---|---|
 | [sql.md](sql.md) | SQL |
-| [gcp.md](gcp.md) | GCP |
+| [gcp.md](gcp.md) | GCP (BigQuery, Dataflow, Composer, CDC) |
 | [python-pyspark.md](python-pyspark.md) | Python & PySpark |
+| [databricks.md](databricks.md) | Databricks, Delta Lake, Unity Catalog |
+| [azure.md](azure.md) | Azure (ADF, ADLS, Key Vault) |
+| [aws.md](aws.md) | AWS |
+| [data-warehousing.md](data-warehousing.md) | Data warehousing & modeling |
+| [scenario-based.md](scenario-based.md) | Scenario, design & project discussion |
+| [behavioral.md](behavioral.md) | Behavioral, managerial & HR |
+| [devops.md](devops.md) | Git, CI/CD & deployment |
+
+When a question was asked at several companies, it's listed once (under the first company) with an **Also asked at** line. When a real-world question duplicates one in the regular question bank, the answer lives here, and the regular entry keeps its number with a **Moved** link.
 
 ## Contributor Rules
 

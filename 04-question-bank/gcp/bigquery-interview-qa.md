@@ -87,22 +87,7 @@ This forces every query against the table to include a filter on the partitionin
 
 ### Q6: How would you deduplicate rows in a BigQuery table?
 
-**Answer:**
-```sql
-CREATE OR REPLACE TABLE sales.orders_dedup AS
-SELECT * EXCEPT(rn) FROM (
-  SELECT *, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) AS rn
-  FROM sales.orders
-)
-WHERE rn = 1;
-```
-`ROW_NUMBER()` over the natural key, keeping the most recent row per key, is the standard pattern.
-
-**Follow-ups:**
-- How do you dedupe with `QUALIFY ROW_NUMBER()`?
-- How would you dedupe in place without recreating the table?
-
-**Difficulty:** Medium
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/sql.md`](../real-world-asked/sql.md).
 
 ---
 
@@ -393,5 +378,27 @@ Filtering on `_PARTITIONTIME` or `_TABLE_SUFFIX` prunes the data read, so it red
 **Follow-ups:**
 - Why are date-sharded tables (`events_YYYYMMDD`) discouraged in favor of partitioned tables?
 - How would you include `_PARTITIONTIME` in the output of a query?
+
+**Difficulty:** Easy
+
+---
+
+### Q24: What's the difference between `COUNT(DISTINCT)` and `APPROX_COUNT_DISTINCT()` in BigQuery?
+
+**Answer:**
+- **`COUNT(DISTINCT col)`** returns the **exact** number of unique values, but needs to track every distinct value, so it's slow and memory-heavy on huge tables.
+- **`APPROX_COUNT_DISTINCT(col)`** uses the **HyperLogLog++** algorithm to estimate the count with a small error (typically under about 1%), much faster and cheaper.
+
+```sql
+SELECT COUNT(DISTINCT user_id)        AS exact_users,
+       APPROX_COUNT_DISTINCT(user_id) AS approx_users
+FROM `my-project.analytics.events`;
+```
+
+Use the approximate version for dashboards, exploration and trend metrics on large data; use the exact count for billing, finance or anything audited. For reusable rollups, store HLL sketches (`HLL_COUNT.INIT` / `HLL_COUNT.MERGE`), so distinct counts can be combined across days without rescanning.
+
+**Follow-ups:**
+- Why can't you add up daily distinct counts to get a weekly distinct count?
+- How do HLL sketches help with that?
 
 **Difficulty:** Easy

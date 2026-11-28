@@ -8,18 +8,7 @@
 
 ### Q1: Explain the different join types and when you'd use each.
 
-**Answer:**
-- **INNER JOIN**: only matching rows from both sides.
-- **LEFT/RIGHT JOIN**: all rows from one side, matched rows (or NULLs) from the other — use LEFT when you need every row from a "primary" table regardless of whether a match exists (e.g., all customers, even ones with no orders).
-- **FULL OUTER JOIN**: all rows from both sides, NULLs where no match — useful for reconciliation (finding what's in A but not B, and vice versa, in one query).
-- **CROSS JOIN**: cartesian product — every row from A paired with every row from B; used deliberately for generating combinations (e.g., date × store) but a common accidental bug when a join condition is missing.
-- **SELF JOIN**: a table joined to itself — used for hierarchical/relative comparisons (employee-manager, consecutive rows).
-
-**Follow-ups:**
-- What does a `CROSS JOIN` return?
-- How do NULLs behave in join conditions?
-
-**Difficulty:** Easy
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/sql.md`](../real-world-asked/sql.md).
 
 ---
 
@@ -172,32 +161,7 @@ Both stack result sets from multiple queries vertically. `UNION` additionally **
 
 ### Q11: How would you find duplicate rows in a table, and then delete all but one copy of each?
 
-**Answer:**
-```sql
--- Find
-SELECT email, COUNT(*) FROM users GROUP BY email HAVING COUNT(*) > 1;
-
--- Delete duplicates, keeping the lowest id per email
-DELETE FROM users
-WHERE id NOT IN (
-  SELECT MIN(id) FROM users GROUP BY email
-);
-```
-
-**BigQuery version:** rather than a row-by-row `DELETE`, rebuild the table, keeping one row per key. This is a single scan and avoids DML quotas on large tables.
-```sql
-CREATE OR REPLACE TABLE mydataset.users AS
-SELECT *
-FROM mydataset.users
-WHERE TRUE
-QUALIFY ROW_NUMBER() OVER (PARTITION BY email ORDER BY id) = 1;
-```
-
-**Follow-ups:**
-- How would you keep the most recently updated row instead of the lowest `id`?
-- On a large partitioned table, what are the trade-offs between `CREATE OR REPLACE` and `DELETE` (cost, time travel, concurrent writers)?
-
-**Difficulty:** Medium
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/sql.md`](../real-world-asked/sql.md).
 
 ---
 
@@ -216,14 +180,7 @@ Normalization organizes data to minimize redundancy (e.g., 3NF — each fact sto
 
 ### Q13: What's the difference between a star schema and a snowflake schema?
 
-**Answer:**
-Both are dimensional modeling patterns with a central **fact table** (measurable events, e.g., sales) surrounded by **dimension tables** (descriptive context, e.g., customer, product, date). In a **star schema**, dimensions are fully denormalized (flat, one table each). In a **snowflake schema**, dimensions are further normalized into sub-dimensions (e.g., `product` → `product_category` as a separate table) — saves storage/redundancy but requires more joins per query. Star schemas are generally preferred in modern columnar warehouses since storage is cheap and join reduction matters more.
-
-**Follow-ups:**
-- Which performs better for BI queries?
-- What's a conformed dimension?
-
-**Difficulty:** Easy
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/data-warehousing.md`](../real-world-asked/data-warehousing.md).
 
 ---
 
@@ -404,82 +361,13 @@ Use `PARTITION BY` when you need row-level detail plus a group metric, e.g. "emp
 
 ### Q23: How do you compare two tables and find missing or different records?
 
-**Answer:**
-Use a `FULL OUTER JOIN` on the key to classify each difference in one pass:
-
-```sql
-SELECT COALESCE(s.id, t.id) AS id,
-       CASE WHEN t.id IS NULL THEN 'missing_in_target'
-            WHEN s.id IS NULL THEN 'missing_in_source'
-            ELSE 'value_mismatch' END AS issue
-FROM src s
-FULL OUTER JOIN tgt t ON t.id = s.id
-WHERE s.id IS NULL OR t.id IS NULL OR s.v IS DISTINCT FROM t.v
-ORDER BY id;
-```
-
-For whole-row comparison, set operators are shorter: `SELECT * FROM src EXCEPT SELECT * FROM tgt` returns rows in `src` that aren't identical in `tgt` (run it both ways). `IS DISTINCT FROM` treats two NULLs as equal, so NULL columns don't show up as false mismatches.
-
-**BigQuery version:**
-```sql
-SELECT * FROM `mydataset.src` EXCEPT DISTINCT SELECT * FROM `mydataset.tgt`;
-```
-BigQuery requires `EXCEPT DISTINCT`. To compare wide tables cheaply, compare per-row fingerprints, e.g. `FARM_FINGERPRINT(TO_JSON_STRING(t))`.
-
-**Follow-ups:**
-- How would you reconcile two tables with billions of rows during a migration?
-- How do NULLs affect `=` versus `IS DISTINCT FROM` in comparisons?
-
-**Difficulty:** Medium
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/sql.md`](../real-world-asked/sql.md).
 
 ---
 
 ### Q24: How do you implement a Slowly Changing Dimension Type 2 load in SQL?
 
-**Answer:**
-SCD Type 2 keeps history: when a tracked attribute changes, **close** the current row and **insert** a new current row. Standard two-step version (tested on DuckDB):
-
-```sql
--- 1. Close the current row for customers whose tracked attribute changed
-UPDATE dim_customer d
-SET valid_to = CURRENT_DATE, is_current = FALSE
-FROM stg_customer s
-WHERE d.customer_id = s.customer_id AND d.is_current AND d.city <> s.city;
-
--- 2. Insert a new current row for changed and brand-new customers
-INSERT INTO dim_customer (customer_id, city, valid_from, valid_to, is_current)
-SELECT s.customer_id, s.city, CURRENT_DATE, NULL, TRUE
-FROM stg_customer s
-LEFT JOIN dim_customer d ON d.customer_id = s.customer_id AND d.is_current
-WHERE d.customer_id IS NULL;
-```
-
-**BigQuery version** (a single `MERGE`; changed rows appear twice in the source, once with a NULL join key, so the new version gets inserted):
-```sql
-MERGE `mydataset.dim_customer` d
-USING (
-  SELECT customer_id AS join_key, customer_id, city FROM `mydataset.stg_customer`
-  UNION ALL
-  SELECT NULL AS join_key, s.customer_id, s.city
-  FROM `mydataset.stg_customer` s
-  JOIN `mydataset.dim_customer` d ON d.customer_id = s.customer_id AND d.is_current
-  WHERE d.city <> s.city
-) s
-ON d.customer_id = s.join_key AND d.is_current
-WHEN MATCHED AND d.city <> s.city THEN
-  UPDATE SET valid_to = CURRENT_DATE(), is_current = FALSE
-WHEN NOT MATCHED THEN
-  INSERT (customer_id, city, valid_from, valid_to, is_current)
-  VALUES (s.customer_id, s.city, CURRENT_DATE(), NULL, TRUE);
-```
-
-With many tracked columns, compare a hash of them (`FARM_FINGERPRINT(...)`) instead of listing every column. In dbt, **snapshots** implement this pattern for you.
-
-**Follow-ups:**
-- How would you handle a customer whose record changes twice in the same batch?
-- How do you query "which city was this customer in on 1 March"?
-
-**Difficulty:** Hard
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/sql.md`](../real-world-asked/sql.md).
 
 ---
 

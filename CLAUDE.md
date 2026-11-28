@@ -73,6 +73,8 @@ Every question in `04-question-bank/` uses this format:
   - **A.** Clearly copied from websites or posts: rewrite in original wording, skip duplicates, and put it in the regular topic folders (not `real-world-asked/`).
   - **B.** Looks genuinely asked (personal wording, specific scenario, company or round mentioned): put it in `real-world-asked/`.
   - **C.** Not sure: don't import; list it for the user to check with the source.
+- **No duplicates anywhere:** keep one copy of each question across the repo. Prefer the real-world-asked version; if several companies asked it, list it once with an `**Also asked at:**` line. If it duplicates a regular-bank question, move the answer to `real-world-asked/` and replace the regular entry's body with a `**Moved:**` link (keep its heading and number). The FreshCart practice set is self-contained: link to it rather than removing problems from it.
+- Keep the user's own interview questions in their original wording; rewrite questions from other people (LinkedIn posts, PDFs) in original wording and never credit or name the posters.
 - Don't commit source documents or screenshots. Add an image to `assets/images/` only if it's original, has no personal details or logos, and isn't copied from a website; otherwise recreate diagrams as Mermaid.
 
 ## System design case studies

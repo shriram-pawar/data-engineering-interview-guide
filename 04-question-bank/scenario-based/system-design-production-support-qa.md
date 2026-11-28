@@ -251,3 +251,30 @@ In an interview, describe one real incident end to end: detection → impact →
 - What would you put in a runbook for an on-call engineer?
 
 **Difficulty:** Easy
+
+---
+
+### Q17: How would you design a BigQuery-centered pipeline that processes about 5 TB of new data every day?
+
+**Answer:**
+```mermaid
+flowchart LR
+    SRC[Sources: DBs · APIs · apps] --> ING[Ingestion<br/>GCS · Pub/Sub · Datastream]
+    ING --> PROC[Processing<br/>Dataflow / Dataproc / BigQuery SQL]
+    PROC --> BQ[(BigQuery<br/>partitioned + clustered)]
+    BQ --> BI[Looker / BI]
+    CMP[Cloud Composer] -.orchestrates.-> PROC
+```
+1. **Ingest** into Cloud Storage (batch files, as Avro or Parquet) or Pub/Sub / Datastream (streaming CDC).
+2. **Validate and transform:** Dataflow or Dataproc for heavy parsing and streaming; BigQuery SQL (dbt or Dataform) for set-based ELT.
+3. **Load efficiently:** batch **load jobs** from Cloud Storage (free) or the Storage Write API for streams, into **date-partitioned, clustered** tables; incremental `MERGE` per partition instead of full rebuilds.
+4. **Orchestrate** with Cloud Composer: dependencies, retries, SLA alerts, backfills.
+5. **Data quality:** row counts, NULL and key checks, reconciliation, with failed records quarantined.
+6. **Cost and performance:** reservations or editions for predictable capacity, `require_partition_filter`, materialized views for hot aggregates, monitoring through `INFORMATION_SCHEMA.JOBS`.
+7. **Reliability:** idempotent loads, replay from raw Cloud Storage, monitoring and alerting.
+
+**Follow-ups:**
+- Would you use on-demand or capacity pricing at this volume?
+- Where are the scaling bottlenecks in this design?
+
+**Difficulty:** Hard

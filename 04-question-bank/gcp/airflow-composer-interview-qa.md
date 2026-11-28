@@ -256,23 +256,7 @@ with TaskGroup("extract_group") as extract_group:
 
 ### Q14: How do retries and SLAs work in Airflow?
 
-**Answer:**
-```python
-default_args = {
-    "retries": 3,
-    "retry_delay": timedelta(minutes=5),
-    "retry_exponential_backoff": True,
-    "sla": timedelta(hours=2),
-}
-```
-- **`retries`/`retry_delay`**: how many times and how often Airflow re-attempts a failed task automatically before marking it failed for good.
-- **SLA**: not a retry mechanism — if a task hasn't *finished* within the SLA window (measured from the DAG run's start), Airflow fires an SLA-miss callback/alert, but the task keeps running; it's purely for monitoring/alerting on slowness.
-
-**Follow-ups:**
-- How do you add exponential backoff to retries?
-- What happens when an SLA is missed?
-
-**Difficulty:** Medium
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/gcp.md`](../real-world-asked/gcp.md).
 
 ---
 
