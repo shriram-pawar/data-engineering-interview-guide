@@ -22,14 +22,7 @@ In practice: prefer DataFrames/Spark SQL; drop to RDDs only for fine-grained con
 
 ### Q2: What does "lazy evaluation" mean in Spark, and why does it matter?
 
-**Answer:**
-Transformations (`select`, `filter`, `join`, `withColumn`, ...) don't execute immediately — Spark just builds up a logical plan (a DAG). Nothing actually runs until an **action** (`show`, `count`, `collect`, `write`) triggers execution. This lets Catalyst optimize the *entire* chain of transformations together (predicate pushdown, column pruning, etc.) instead of executing each step naively.
-
-**Follow-ups:**
-- How does lazy evaluation let Catalyst optimize a query?
-- What triggers execution of a DAG?
-
-**Difficulty:** Easy
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/python-pyspark.md`](../real-world-asked/python-pyspark.md).
 
 ---
 
@@ -49,34 +42,13 @@ Transformations (`select`, `filter`, `join`, `withColumn`, ...) don't execute im
 
 ### Q4: What is a partition, and how do `repartition()` and `coalesce()` differ?
 
-**Answer:**
-A partition is a chunk of a DataFrame processed by a single task on a single executor core. Both change the number of partitions, but:
-- **`repartition(n)`**: full shuffle, can increase or decrease partitions, produces roughly evenly-sized partitions. Use before a wide operation (join/aggregation) that benefits from even distribution.
-- **`coalesce(n)`**: no full shuffle (merges adjacent partitions), can only *decrease* partitions, cheaper. Use just before writing output to reduce the number of small files.
-
-```python
-df.repartition(200, "customer_id")   # even shuffle by key, for a join
-df.coalesce(10).write.parquet(path)  # cheaper reduction before writing
-```
-
-**Follow-ups:**
-- Why can `coalesce(1)` make a job slow?
-- How do you decide on the number of partitions?
-
-**Difficulty:** Medium
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/python-pyspark.md`](../real-world-asked/python-pyspark.md).
 
 ---
 
 ### Q5: What's the difference between `cache()` and `persist()`?
 
-**Answer:**
-`cache()` is shorthand for `persist(StorageLevel.MEMORY_AND_DISK)`. `persist()` lets you choose the storage level explicitly — `MEMORY_ONLY`, `MEMORY_AND_DISK`, `DISK_ONLY`, with `_SER` (serialized, less memory, more CPU) and `_2` (replicated) variants. Use caching when a DataFrame is reused multiple times downstream (e.g., referenced in two branches of a pipeline) to avoid recomputing it from scratch each time.
-
-**Follow-ups:**
-- Which storage levels are there, and when would you use `MEMORY_AND_DISK`?
-- When should you call `unpersist()`?
-
-**Difficulty:** Easy
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/python-pyspark.md`](../real-world-asked/python-pyspark.md).
 
 ---
 
@@ -95,38 +67,13 @@ A shuffle redistributes data across the cluster so that records with the same ke
 
 ### Q7: Explain broadcast joins and when to use them.
 
-**Answer:**
-When joining a large DataFrame with a much smaller one, Spark can send ("broadcast") a full copy of the small DataFrame to every executor, so the join happens locally with no shuffle of the large table.
-```python
-from pyspark.sql.functions import broadcast
-
-result = big_df.join(broadcast(small_df), "customer_id")
-```
-Spark auto-broadcasts tables under `spark.sql.autoBroadcastJoinThreshold` (default 10 MB), but you can force it explicitly. Good rule of thumb: use it when one side comfortably fits in executor memory (typically well under a few hundred MB–1GB).
-
-**Follow-ups:**
-- What's the default broadcast size threshold, and how do you change it?
-- What happens if you broadcast a table that's too big?
-
-**Difficulty:** Medium
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/python-pyspark.md`](../real-world-asked/python-pyspark.md).
 
 ---
 
 ### Q8: What causes data skew, and how do you fix it?
 
-**Answer:**
-Skew happens when one or a few keys have disproportionately more rows than others (e.g., a "NULL" or default customer_id holding half the data), so a handful of tasks take far longer than the rest and become the bottleneck.
-Fixes:
-- **Salting**: append a random suffix to the skewed key, join, then aggregate back.
-- **Broadcast join** if the small side is genuinely small.
-- **Adaptive Query Execution (AQE)** — Spark 3+ can auto-detect and split skewed partitions (`spark.sql.adaptive.skewJoin.enabled`).
-- Isolate and handle the hot key(s) separately from the rest of the data.
-
-**Follow-ups:**
-- How does salting work, step by step?
-- How does AQE's skew-join handling differ from manual salting?
-
-**Difficulty:** Hard
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/python-pyspark.md`](../real-world-asked/python-pyspark.md).
 
 ---
 
@@ -145,17 +92,7 @@ A Spark 3.x feature that re-optimizes the query plan at runtime using actual sta
 
 ### Q10: Explain the Spark architecture: driver, executors, cluster manager.
 
-**Answer:**
-- **Driver**: runs the `main()` program, builds the DAG, schedules tasks, and collects results. One per application.
-- **Executors**: JVM processes on worker nodes that actually run tasks and hold cached data; each has its own CPU cores and memory.
-- **Cluster manager** (YARN, Kubernetes, Standalone, or Dataproc's manager): allocates resources (executors) to the application across the cluster.
-Client vs cluster deploy mode determines *where* the driver runs — on the machine that submitted the job (client) or inside the cluster (cluster mode, typical for production).
-
-**Follow-ups:**
-- What happens when an executor dies mid-job?
-- What are jobs, stages and tasks?
-
-**Difficulty:** Easy
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/python-pyspark.md`](../real-world-asked/python-pyspark.md).
 
 ---
 
@@ -340,20 +277,7 @@ query = (stream_df.groupBy("customer_id").count()
 
 ### Q21: How would you tune a slow Spark job — what's your general checklist?
 
-**Answer:**
-1. Check the Spark UI for skewed/straggler tasks and excessive spill to disk.
-2. Reduce shuffles: broadcast small joins, filter/select early ("push down" work before wide operations).
-3. Right-size partitions (`spark.sql.shuffle.partitions`, `repartition`/`coalesce`) — too few = underutilized cluster, too many = scheduling overhead.
-4. Cache DataFrames that are reused multiple times, and unpersist when done.
-5. Avoid Python UDFs where a built-in/Pandas UDF exists.
-6. Check executor memory config and GC pressure; watch for OOM/spill in the UI.
-7. Enable AQE and dynamic allocation if not already on.
-
-**Follow-ups:**
-- How do you read the Spark UI to find the bottleneck?
-- How would you size executors (cores and memory)?
-
-**Difficulty:** Hard
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/python-pyspark.md`](../real-world-asked/python-pyspark.md).
 
 ---
 
@@ -419,17 +343,7 @@ print(bad_records.value)
 
 ### Q25: What's the difference between narrow and wide transformations?
 
-**Answer:**
-- **Narrow:** each output partition depends on **one** input partition, so there's no data movement. Examples: `select`, `filter`, `withColumn`, `map`, `union`. Spark pipelines consecutive narrow transformations into one stage.
-- **Wide:** an output partition needs data from **many** input partitions, so Spark must **shuffle** data across the network. Examples: `groupBy`, `join` (non-broadcast), `distinct`, `orderBy`, `repartition`.
-
-Wide transformations create **stage boundaries** and are usually the most expensive part of a job, so tuning focuses on reducing or optimizing them.
-
-**Follow-ups:**
-- Why is a broadcast join narrow on the large side?
-- Is `coalesce` narrow or wide?
-
-**Difficulty:** Easy
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/python-pyspark.md`](../real-world-asked/python-pyspark.md).
 
 ---
 
@@ -515,5 +429,100 @@ Pushdown can be blocked by UDFs in the filter, by casting the column (`CAST(col 
 **Follow-ups:**
 - How do partition pruning and predicate pushdown differ?
 - Why might a filter on a timestamp column not be pushed down?
+
+**Difficulty:** Medium
+
+---
+
+### Q30: What is Project Tungsten in Spark?
+
+**Answer:**
+Tungsten is a set of Spark **execution-engine optimizations** focused on CPU and memory efficiency:
+- **Off-heap, binary memory management** (`UnsafeRow`): data stored in compact binary form instead of Java objects, so less garbage collection and smaller memory use.
+- **Cache-aware computation:** algorithms and data structures (e.g. sort, hash aggregation) designed for CPU caches.
+- **Whole-stage code generation:** chains of operators are compiled into a single optimized JVM function, avoiding virtual function calls per row.
+
+Catalyst decides **what** plan to run; Tungsten makes executing it fast. You get it automatically with DataFrames and SQL (not with RDDs of Python objects), which is one reason DataFrames outperform RDDs.
+
+**Follow-ups:**
+- Why don't RDD-based jobs benefit from Tungsten?
+- How can you see whole-stage codegen in a query plan?
+
+**Difficulty:** Medium
+
+---
+
+### Q31: What's the difference between caching and checkpointing in Spark?
+
+**Answer:**
+| | `cache()` / `persist()` | `checkpoint()` |
+|---|---|---|
+| Stores data in | Executor memory and/or local disk | **Reliable storage** (HDFS, DBFS, cloud storage via `setCheckpointDir`) |
+| Lineage | **Kept**: lost partitions are recomputed | **Truncated**: the plan restarts from the saved data |
+| Survives | Only while the application and executors live | Beyond executor loss (and, for streaming, application restarts) |
+| Cost | Fast, cheap | Writes the full data out (slower); compute twice unless cached first |
+| Use for | Reusing a DataFrame several times in one job | Very long lineage (iterative algorithms, many joins) causing slow planning or stack overflows; streaming state and offsets |
+
+`localCheckpoint()` truncates lineage using executor storage (faster, not fault-tolerant). In Structured Streaming, the **checkpoint location** stores offsets and state, which is different but related.
+
+**Follow-ups:**
+- Why might a very long lineage slow down a job?
+- Why cache a DataFrame before checkpointing it?
+
+**Difficulty:** Medium
+
+---
+
+### Q32: What is a broadcast variable in Spark?
+
+**Answer:**
+A broadcast variable sends a **read-only value to every executor once**, instead of shipping it with every task:
+
+```python
+country_names = {"IN": "India", "US": "United States"}
+bc = spark.sparkContext.broadcast(country_names)
+
+rdd.map(lambda r: (r.id, bc.value.get(r.country_code, "Unknown")))
+```
+
+Use it for small lookup data (maps, sets, small models) used inside RDD operations or UDFs. With DataFrames, the equivalent is usually a **broadcast join** (`F.broadcast(small_df)`), which Spark can plan and optimize. Keep broadcast data small (it has to fit in the driver and every executor), and call `unpersist()` / `destroy()` when done.
+
+**Follow-ups:**
+- How is a broadcast variable different from a broadcast join?
+- What happens if the broadcast value is too large?
+
+**Difficulty:** Easy
+
+---
+
+### Q33: How do Spark driver memory and executor memory differ, and what is each used for?
+
+**Answer:**
+- **Driver memory** (`spark.driver.memory`): used by the driver process for the SparkSession, query planning, task scheduling, broadcast variables built on the driver, and **results returned to it** (`collect`, `toPandas`). Too little causes driver OOMs on large collects or huge plans.
+- **Executor memory** (`spark.executor.memory`): used by each executor for **execution** (shuffles, joins, sorts, aggregations) and **storage** (cached data), managed by the unified memory model (`spark.memory.fraction`), plus **overhead memory** (`spark.executor.memoryOverhead`) for off-heap and native use (Python workers, Photon, network buffers).
+
+Sizing: executors need enough memory per core for the largest partitions (otherwise spills or OOM); the driver usually needs less, unless you collect or broadcast large data.
+
+**Follow-ups:**
+- What is memory overhead, and why do PySpark jobs often need more of it?
+- How does `spark.memory.fraction` split execution and storage memory?
+
+**Difficulty:** Medium
+
+---
+
+### Q34: What happens if the driver node fails in a Spark application?
+
+**Answer:**
+The driver holds the application's state (DAG, scheduling, task tracking, results), so **if it fails, the whole application fails**: executors are released and running work is lost. Unlike executors, a driver failure isn't recovered automatically within the same run.
+
+How to cope:
+- **Batch jobs:** let the orchestrator retry the whole job (Databricks job retries, Airflow retries), so jobs must be **idempotent** (partition overwrite, `MERGE`).
+- **Streaming:** restart from the **checkpoint**: offsets and state are restored and processing continues exactly-once into Delta sinks. Cluster-mode supervision (`--supervise` on standalone, YARN application attempts, Databricks job retries) can restart the driver automatically.
+- **Prevent:** avoid driver OOMs (no big `collect`), and size the driver node for large plans.
+
+**Follow-ups:**
+- Why does a streaming job need a checkpoint location to survive driver restarts?
+- How is executor failure handled differently?
 
 **Difficulty:** Medium

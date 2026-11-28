@@ -260,14 +260,7 @@ terraform apply  # create/update infrastructure
 
 ### Q16: How would you securely manage secrets (DB passwords, API keys) used by a pipeline running in the cloud?
 
-**Answer:**
-Never hardcode secrets in code or plain config files committed to Git. Use a managed secrets service (Google **Secret Manager**, Azure Key Vault, AWS Secrets Manager) and grant the pipeline's runtime service account least-privilege access to fetch only the specific secrets it needs, ideally injected at runtime (env var/mounted file) rather than baked into a container image.
-
-**Follow-ups:**
-- How do you rotate secrets?
-- How do you avoid secrets ending up in logs?
-
-**Difficulty:** Medium
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/azure.md`](../real-world-asked/azure.md).
 
 ---
 

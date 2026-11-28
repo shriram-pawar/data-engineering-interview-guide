@@ -289,24 +289,7 @@ class Event:
 
 ### Q14: How would you deduplicate a list while preserving order?
 
-**Answer:**
-```python
-def dedupe(items):
-    seen = set()
-    result = []
-    for item in items:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
-```
-(For Python 3.7+, `list(dict.fromkeys(items))` also works and preserves order.)
-
-**Follow-ups:**
-- Why does `dict.fromkeys` preserve order?
-- How would you dedupe by one field of a dict rather than the whole record?
-
-**Difficulty:** Easy
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/python-pyspark.md`](../real-world-asked/python-pyspark.md).
 
 ---
 
@@ -796,5 +779,121 @@ first, second = ["Hello ", "Bye "], ["Dear", "Sir"]
 **Follow-ups:**
 - What's the difference between `reversed(nums)`, `nums.reverse()` and `nums[::-1]`?
 - How would you flatten a list of lists?
+
+**Difficulty:** Easy
+
+---
+
+### Q35: Coding: reverse a singly linked list.
+
+**Answer:**
+Walk the list once and flip each `next` pointer (O(n) time, O(1) extra space):
+
+```python
+class Node:
+    def __init__(self, val, next=None):
+        self.val, self.next = val, next
+
+def reverse(head):
+    prev = None
+    while head:
+        head.next, prev, head = prev, head, head.next   # flip pointer, advance
+    return prev
+
+def to_list(head):
+    out = []
+    while head:
+        out.append(head.val); head = head.next
+    return out
+
+head = Node(1, Node(2, Node(3)))
+print(to_list(reverse(head)))      # [3, 2, 1]
+```
+
+Edge cases: an empty list (`None`) and a single node both work unchanged. A recursive version is shorter but uses O(n) stack space.
+
+**Follow-ups:**
+- How would you reverse only the first k nodes?
+- How do you detect a cycle in a linked list?
+
+**Difficulty:** Medium
+
+---
+
+### Q36: Coding: check whether a string is a palindrome.
+
+**Answer:**
+Normalize first (case, and non-alphanumeric characters if the question allows), then compare from both ends:
+
+```python
+def is_palindrome(s):
+    cleaned = [c.lower() for c in s if c.isalnum()]
+    i, j = 0, len(cleaned) - 1
+    while i < j:
+        if cleaned[i] != cleaned[j]:
+            return False
+        i, j = i + 1, j - 1
+    return True
+
+print(is_palindrome("Never odd or even"))   # True
+print(is_palindrome("data"))                 # False
+```
+
+The two-pointer loop is O(n) and stops at the first mismatch. The one-liner `cleaned == cleaned[::-1]` is fine too, but builds a reversed copy.
+
+**Follow-ups:**
+- How would you find the longest palindromic substring?
+- Can the string become a palindrome by removing at most one character?
+
+**Difficulty:** Easy
+
+---
+
+### Q37: Coding: count word frequencies in a text.
+
+**Answer:**
+```python
+import re
+from collections import Counter
+
+def word_frequency(text, top=None):
+    words = re.findall(r"[a-z0-9']+", text.lower())
+    counts = Counter(words)
+    return counts.most_common(top)
+
+text = "Data pipelines move data. Good pipelines validate data."
+print(word_frequency(text, 3))     # [('data', 3), ('pipelines', 2), ('move', 1)]
+```
+
+Normalizing case and tokenizing with a regex avoids counting "Data" and "data." separately. For text that doesn't fit in memory, stream it line by line and update the `Counter`; at scale, use Spark (`explode(split(...))` then `groupBy().count()`).
+
+**Follow-ups:**
+- How would you group words that are anagrams of each other?
+- How would you do this for a 50 GB file?
+
+**Difficulty:** Easy
+
+---
+
+### Q38: Coding: generate Fibonacci numbers with a generator.
+
+**Answer:**
+```python
+from itertools import islice
+
+def fibonacci():
+    a, b = 0, 1
+    while True:            # infinite stream; the caller decides how many to take
+        yield a
+        a, b = b, a + b
+
+print(list(islice(fibonacci(), 10)))     # [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+```
+
+A generator produces values **lazily**, one at a time, with O(1) memory, so it can represent an infinite sequence. The caller controls how much to consume (`islice`, or `for n in fibonacci(): if n > 100: break`). Compare with the naive recursive version, which is exponential time.
+
+**Follow-ups:**
+- How would you return only the Fibonacci numbers below a limit?
+- Why does naive recursion take exponential time?
 
 **Difficulty:** Easy

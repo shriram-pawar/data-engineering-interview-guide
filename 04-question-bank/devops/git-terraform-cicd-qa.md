@@ -66,28 +66,7 @@ Common conventions: `feature/<topic>` and `fix/<topic>` branches off `main`, mer
 
 ### Q4: How does `git merge` work, and how do you resolve a merge conflict?
 
-**Answer:**
-`git merge` integrates another branch's changes into the current branch. If the branches have diverged, Git creates a **merge commit** with two parents; if the current branch has no new commits, it simply moves the pointer forward (**fast-forward**).
-
-```mermaid
-gitGraph
-    commit id: "init"
-    branch feature
-    checkout feature
-    commit id: "change 1"
-    commit id: "change 2"
-    checkout main
-    commit id: "hotfix"
-    merge feature id: "merge commit"
-```
-
-A **conflict** happens when both branches changed the same lines. Git marks them (`<<<<<<<`, `=======`, `>>>>>>>`); you edit the file to the correct result, then `git add` it and `git commit` (or `git merge --continue`). Abort with `git merge --abort`.
-
-**Follow-ups:**
-- What's the difference between a merge commit, a squash merge and a rebase?
-- How do you reduce merge conflicts on a busy repository?
-
-**Difficulty:** Easy
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/devops.md`](../real-world-asked/devops.md).
 
 ---
 

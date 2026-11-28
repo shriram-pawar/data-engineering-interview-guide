@@ -8,6 +8,7 @@ Interview questions organized by topic.
 | `python-pyspark/` | Python and PySpark coding/concepts |
 | `gcp/` | Google Cloud data services |
 | `databricks/` | Databricks, Delta Lake, Spark on Databricks |
+| `azure/` | Azure Data Factory, Synapse/Azure SQL, Event Hubs, monitoring and governance, DevOps and DR, architecture scenarios |
 | `data-warehousing/` | Modeling, warehousing, and architecture |
 | `scenario-based/` | Real-world troubleshooting and design scenarios |
 | `behavioral/` | STAR-format behavioral questions |

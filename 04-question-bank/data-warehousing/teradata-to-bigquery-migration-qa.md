@@ -27,21 +27,7 @@ In an interview, tie it to business outcomes: faster reports, lower total cost, 
 
 ### Q2: What are the main phases of a Teradata to BigQuery migration?
 
-**Answer:**
-1. **Assess:** inventory tables, views, macros, stored procedures, BTEQ scripts, ETL jobs and consumers; use query logs to find what's actually used.
-2. **Plan:** choose an approach (lift-and-shift the schema first, then optimize), decide the order (by subject area), and set up the target landing zone (projects, IAM, datasets).
-3. **Migrate the schema:** translate DDL, map data types, and design partitioning and clustering.
-4. **Migrate the data:** historical backfill, then incremental loads.
-5. **Translate code:** SQL, procedures and ETL pipelines.
-6. **Validate:** row counts, aggregates and hashes; reconcile reports.
-7. **Parallel run and cutover:** run both systems, switch consumers, keep a rollback plan.
-8. **Optimize and decommission:** tune queries and cost, then retire Teradata.
-
-**Follow-ups:**
-- How would you decide which subject area to migrate first?
-- What exit criteria would you use for the parallel run?
-
-**Difficulty:** Medium
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/gcp.md`](../real-world-asked/gcp.md).
 
 ---
 

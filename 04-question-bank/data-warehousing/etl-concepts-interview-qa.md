@@ -99,17 +99,7 @@ Plain Parquet files in a lake have no transaction log — concurrent writers can
 
 ### Q8: How would you design an incremental load pattern (only process new/changed data, not the whole table every run)?
 
-**Answer:**
-Common approaches:
-- **Watermark-based**: track the max `updated_at`/`id` processed so far; each run pulls only rows newer than that watermark.
-- **CDC (Change Data Capture)**: use a tool (Datastream, Debezium) that reads the source database's transaction log directly, capturing every insert/update/delete as it happens — most accurate, doesn't rely on an `updated_at` column being reliably maintained by the source application.
-- **Partition-based reprocessing**: for sources where late updates are common but bounded (e.g., "data can be corrected up to 3 days late"), reprocess a rolling window of recent partitions each run rather than tracking exact watermarks.
-
-**Follow-ups:**
-- What are the pitfalls of using an `updated_at` watermark?
-- How does CDC compare with watermark-based incremental loads?
-
-**Difficulty:** Medium
+**Moved:** this question was asked in real interviews, so its answer now lives in [`real-world-asked/scenario-based.md`](../real-world-asked/scenario-based.md).
 
 ---
 
